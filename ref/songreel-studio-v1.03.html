@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio — Tạo bài hát viết riêng · SongReel V1.03</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef5fc;--ink:#14324f;--text:#2a3f55;--muted:#6b7c8f;--line:#d9e4ef;--blue:#0b74b8;--blue-d:#085d94;--chip:#fff;--ok:#2f8f5b;--warn:#c98a00;--bad:#c0392b;--gold:#e8a33d}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);font-family:"Be Vietnam Pro",system-ui,Arial,sans-serif;font-size:15px;line-height:1.5}
+.serif{font-family:Lora,Georgia,serif}
+.lang{display:flex;justify-content:center;padding-top:12px}.lang div{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px;display:flex;gap:2px;align-items:center;font-size:13px}
+.lang span{padding:5px 12px;border-radius:999px;color:var(--muted);cursor:default}.lang span.on{background:var(--blue);color:#fff;font-weight:600}
+.shell{max-width:720px;margin:0 auto;padding:14px 20px 40px}
+.top{display:flex;justify-content:space-between;align-items:center;margin:14px 0 18px}
+.back{background:none;border:0;color:var(--text);font:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0}.back[hidden]{visibility:hidden;display:flex}
+.logo{font-family:Lora,serif;font-size:19px;color:var(--ink);font-weight:600}.logo b{color:var(--blue)}
+.prog-meta{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}.prog-meta b{color:var(--blue);font-weight:600}
+.prog{height:6px;background:#dde7f1;border-radius:6px;margin:6px 0 30px;overflow:hidden}.prog i{display:block;height:100%;background:var(--blue);border-radius:6px;transition:width .35s}
+h1.q{font-family:Lora,serif;color:var(--ink);font-size:32px;line-height:1.2;text-align:center;margin:0 0 8px}
+.sub{text-align:center;color:var(--muted);margin:0 0 6px}.hint{text-align:center;color:var(--muted);font-size:12.5px;font-style:italic;margin:0 0 18px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:20px 0 6px}
+.chip{background:var(--chip);border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font:inherit;color:var(--text);cursor:pointer;transition:all .15s}
+.chip:hover{border-color:#a9c7e2;transform:translateY(-1px)}.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.group-label{text-align:center;font-weight:600;color:var(--ink);margin:22px 0 0;font-size:14px}
+.field{max-width:420px;margin:22px auto 0}.field.wide{max-width:none}
+.field label{display:block;font-weight:600;font-size:13.5px;margin:12px 0 6px;color:var(--ink)}
+input,textarea,select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;background:#fff;color:var(--text);outline:none}
+input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,116,184,.12)}
+input.center{text-align:center}textarea{min-height:120px;resize:vertical}
+.counter{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}.counter .warn{color:var(--bad)}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:34px}
+.btn{border:0;border-radius:999px;padding:12px 22px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn.primary{background:var(--blue);color:#fff}.btn.primary:hover{background:var(--blue-d)}.btn.primary:disabled{background:#c8d2dc;color:#7d8a97;cursor:default}
+.btn.outline{background:transparent;border:1.5px solid var(--blue);color:var(--blue)}.btn.big{padding:15px 28px;font-size:16px}
+.legal{text-align:center;font-size:11.5px;color:var(--muted);margin-top:26px}.legal u{cursor:pointer}
+.step{display:none;animation:fade .3s}.step.on{display:block}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+details.adv{max-width:520px;margin:18px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+details.adv summary{cursor:pointer;font-weight:600;color:var(--ink);font-size:14px}
+.mini-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.mini-chips .chip{padding:6px 12px;font-size:13px}
+/* màn hình chờ */
+.wait{text-align:center}.disc{width:120px;height:120px;border-radius:50%;margin:10px auto 22px;background:radial-gradient(circle,#fff 0 12px,var(--ink) 13px 15px,#1e4a72 16px 40px,#2a5f8f 41px 42px,#1e4a72 43px 58px);animation:spin 3s linear infinite;box-shadow:0 10px 30px rgba(20,50,79,.25)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.agents{max-width:480px;margin:20px auto 0;text-align:left;background:#fff;border:1px solid var(--line);border-radius:16px;padding:6px 16px}
+.agents li{list-style:none;display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid #edf2f7;font-size:14px;align-items:start}.agents li:last-child{border:0}
+.agents .nm{font-weight:600;color:var(--ink)}.agents .ds{color:var(--muted);font-size:13px}.agents .tm{color:var(--muted);font-size:12px}
+.st{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);margin-top:2px;display:grid;place-items:center;font-size:11px;color:#fff}
+.st.run{border-color:var(--blue);border-top-color:transparent;animation:spin .8s linear infinite}.st.ok{background:var(--ok);border-color:var(--ok)}.st.ok::after{content:"✓"}
+.st.back{background:var(--warn);border-color:var(--warn)}.st.back::after{content:"↺"}.st.err{background:var(--bad);border-color:var(--bad)}.st.err::after{content:"!"}
+.agents ul{padding:0;margin:0}
+/* kết quả */
+.res-head{text-align:center}.badge{display:inline-block;background:#e3f0fa;color:var(--blue);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600}
+.player{background:linear-gradient(135deg,#14324f,#235d8c);color:#fff;border-radius:20px;padding:20px;margin:18px 0;box-shadow:0 12px 30px rgba(20,50,79,.2)}
+.player h3{font-family:Lora,serif;margin:0 0 2px;font-size:22px}.player .for{opacity:.8;font-size:13.5px}
+.takes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}@media(max-width:560px){.takes{grid-template-columns:1fr}}
+.take{background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);border-radius:14px;padding:12px;cursor:pointer}.take.sel{border-color:#fff;background:rgba(255,255,255,.18)}
+.take .row{display:flex;align-items:center;gap:10px}.pbtn{width:42px;height:42px;border-radius:50%;border:0;background:#fff;color:var(--ink);font-size:16px;cursor:pointer;flex:none}
+.bar{height:5px;background:rgba(255,255,255,.25);border-radius:5px;margin-top:10px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--gold)}
+.take small{opacity:.75;font-size:12px}.tag{font-size:11px;background:var(--gold);color:#3a2500;border-radius:999px;padding:1px 8px;font-weight:700;margin-left:4px}
+.lyrics{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px 20px;max-height:360px;overflow:auto;position:relative}
+.lyrics .sec{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin:14px 0 4px}
+.lyrics .ln{font-size:17px;color:#9aabbc;transition:color .2s}.lyrics .ln.on{color:var(--ink)}.lyrics .w.sung{color:var(--blue)}
+.lyrics.locked .ln.late{filter:blur(4px);user-select:none}
+.paywall{background:#fff;border:2px solid var(--blue);border-radius:18px;padding:18px 20px;margin-top:16px}
+.paywall h3{font-family:Lora,serif;color:var(--ink);margin:0 0 4px;font-size:21px}.price{font-size:26px;font-weight:700;color:var(--ink)}.price s{font-size:15px;color:var(--muted);font-weight:400;margin-left:6px}
+.incl{list-style:none;padding:0;margin:10px 0}.incl li{padding:3px 0}.incl li::before{content:"✓ ";color:var(--ok);font-weight:700}
+.upsell{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;cursor:pointer}.upsell input{width:auto;margin-top:4px}
+.upsell b{color:var(--ink)}.upsell span{font-size:13px;color:var(--muted)}
+.trust{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:12px}
+.studio-panel{margin-top:16px}.studio-panel summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.kv{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.kv span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12.5px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;white-space:pre-wrap;max-height:240px;overflow:auto}
+.err{color:var(--bad);text-align:center;margin-top:12px}
+.done-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;text-align:center;margin-top:14px}
+.dl{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:10px}.dl a{text-decoration:none}
+.foot{text-align:center;color:var(--muted);font-size:11.5px;margin-top:30px}
+.suno-box{border:1.5px dashed #b9cde0;border-radius:12px;padding:10px 12px;margin-top:12px;background:#f7fbff}
+.suno-head{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);cursor:pointer}.suno-head input{width:auto}
+.pill-s{font-size:11px;background:#e3f0fa;color:var(--blue);border-radius:999px;padding:1px 8px}
+.suno-warn{font-size:12px;color:#7a5a00;background:#fff7e0;border:1px solid #f1dc9a;border-radius:10px;padding:8px 10px;margin:8px 0}
+.suno-box label{display:block;font-weight:600;font-size:12.5px;margin:8px 0 4px;color:var(--ink)}.suno-box input,.suno-box textarea{padding:8px 10px;font-size:13px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:560px){.g2{grid-template-columns:1fr}}
+#sunoCfg{display:none}.adv2 summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--blue);margin-top:10px}
+.ver{position:fixed;right:10px;bottom:8px;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="lang"><div>🌐 <span class="on">Tiếng Việt</span><span title="Bản V1.01 chỉ có tiếng Việt">English</span></div></div>
+<div class="shell">
+  <div class="top"><button class="back" id="backTop" hidden>← Quay lại</button><div class="logo">Song<b>Reel</b></div></div>
+  <div id="progWrap"><div class="prog-meta"><span id="stepTxt">Bước 1/8</span><b id="pctTxt">Đã hoàn thành 13%</b></div><div class="prog"><i id="progBar" style="width:12.5%"></i></div></div>
+
+  <!-- B1 -->
+  <section class="step on" data-step="1">
+    <h1 class="q">Bạn tặng bài hát này cho ai?</h1>
+    <p class="sub">Chọn một người. Chỉ mất khoảng 2 phút, và bạn được nghe thử miễn phí trước khi thanh toán.</p>
+    <div class="chips" data-key="rel" data-auto="1"></div>
+  </section>
+  <!-- B2 -->
+  <section class="step" data-step="2">
+    <h1 class="q">Người nhận tên là gì?</h1><p class="sub">Tên này sẽ được hát trong điệp khúc.</p>
+    <div class="field"><input class="center" id="f_name" placeholder="Ví dụ: Mẹ Thu, bé Na, anh Minh" maxlength="40"></div>
+    <p class="hint" style="margin-top:10px">Mẹo: viết đúng cách bạn vẫn gọi người ấy hằng ngày.</p>
+  </section>
+  <!-- B3 -->
+  <section class="step" data-step="3">
+    <h1 class="q">Bạn tặng bài hát nhân dịp gì?</h1><p class="sub">Chọn dịp tặng bài hát của bạn</p>
+    <div class="chips" data-key="occ" data-auto="1"></div>
+  </section>
+  <!-- B4 -->
+  <section class="step" data-step="4">
+    <h1 class="q">Chọn thể loại nhạc</h1><p class="sub">Chọn một thể loại</p>
+    <div class="chips" data-key="genre"></div>
+    <p class="group-label">Chọn giọng hát</p>
+    <div class="chips" data-key="voice"></div>
+    <details class="adv"><summary>Tuỳ chỉnh thêm (tempo, cảm xúc, thời kỳ, nhạc cụ)</summary>
+      <div class="field wide"><label>Tempo</label><div class="mini-chips chips" data-key="tempo" style="justify-content:flex-start;margin:0"></div>
+      <label>Cảm xúc</label><div class="mini-chips chips" data-key="mood" style="justify-content:flex-start;margin:0"></div>
+      <label>Thời kỳ âm nhạc</label><div class="mini-chips chips" data-key="decade" style="justify-content:flex-start;margin:0"></div>
+      <label>Nhạc cụ chính</label><div class="mini-chips chips" data-key="inst" style="justify-content:flex-start;margin:0"></div></div>
+    </details>
+  </section>
+  <!-- B5 -->
+  <section class="step" data-step="5">
+    <h1 class="q">Điều gì làm họ đặc biệt?</h1><p class="sub">Miêu tả tính cách và những điểm bạn yêu thương ở họ</p>
+    <p class="hint">Không bắt buộc, nhưng càng cụ thể bài hát càng chạm.</p>
+    <div class="field wide"><label>Những nét tính cách tuyệt vời</label>
+      <textarea id="f_qual" placeholder="Họ là người như thế nào? Hiền lành, hài hước, chu đáo? Điều gì khiến họ trở thành người tuyệt vời như vậy?"></textarea></div>
+  </section>
+  <!-- B6 -->
+  <section class="step" data-step="6">
+    <h1 class="q">Chia sẻ những kỷ niệm bạn thích nhất</h1><p class="sub">Chia sẻ kỷ niệm, khoảnh khắc yêu thích</p>
+    <p class="hint">Mỗi chi tiết thật sẽ thành một câu hát.</p>
+    <div class="field wide"><label>Những khoảnh khắc đặc biệt bên nhau *</label>
+      <textarea id="f_mem" placeholder="Kể về lần đầu gặp nhau, những năm tháng đáng nhớ, câu đùa chỉ hai người hiểu, hoặc những khoảnh khắc khiến mối quan hệ của hai người thật đặc biệt..."></textarea>
+      <div class="counter"><span id="memWarn"></span><span id="memCount">0 / 20 ký tự tối thiểu</span></div></div>
+  </section>
+  <!-- B7 -->
+  <section class="step" data-step="7">
+    <h1 class="q">Lời nhắn đề tặng</h1><p class="sub">Một câu bạn muốn người ấy nghe ở cuối bài (không bắt buộc)</p>
+    <div class="field wide"><label>Lời đề tặng</label><textarea id="f_ded" style="min-height:80px" placeholder="Ví dụ: Chúc mẹ luôn khoẻ mạnh và cười thật nhiều."></textarea>
+      <label>Ký tên</label><input id="f_sender" placeholder="Ví dụ: Con gái Minh Anh"></div>
+  </section>
+  <!-- B8 -->
+  <section class="step" data-step="8">
+    <h1 class="q">Nhận bản nghe thử ở đâu?</h1><p class="sub">Chúng tôi gửi link bài hát qua email khi bản đầy đủ sẵn sàng.</p>
+    <div class="field"><label>Email</label><input id="f_email" type="email" placeholder="ban@email.com">
+      <label>Số điện thoại Zalo (không bắt buộc)</label><input id="f_phone" placeholder="09xx xxx xxx"></div>
+    <details class="adv"><summary>Kết nối AI thật (dành cho thử nghiệm)</summary>
+      <p class="hint" style="text-align:left">Để trống: lời theo mẫu, nhạc tổng hợp trong trình duyệt. Khoá chỉ nằm trong tab này.</p>
+      <label style="font-weight:600;font-size:13px">Anthropic API key (Claude viết lời)</label><input id="kClaude" type="password" placeholder="sk-ant-...">
+      <div class="suno-box">
+        <label class="suno-head"><input type="checkbox" id="gptOn"> <b>Kết nối ChatGPT (OpenAI API)</b> <span class="pill-s">viết lời</span></label>
+        <div id="gptCfg" style="display:none">
+          <div class="g2"><div><label>OpenAI API key</label><input id="kOpenAI" type="password" placeholder="sk-..."></div>
+            <div><label>Model</label><input id="oModel" list="oModels" value="gpt-5.6-sol"><datalist id="oModels"><option value="gpt-5.6-sol"><option value="gpt-5.6-terra"><option value="gpt-5.6-luna"><option value="chat-latest"></datalist></div></div>
+          <label>Ai viết lời?</label>
+          <select id="writer"><option value="auto">Tự động: ChatGPT trước, Claude dự phòng</option><option value="openai">Chỉ ChatGPT</option><option value="claude">Chỉ Claude</option><option value="both">Cả hai viết, Lyric Critic chọn bản điểm cao hơn</option></select>
+          <p class="hint" style="text-align:left;margin:6px 0 0">Tên model đổi theo thời gian — sửa lại nếu OpenAI báo không tìm thấy model. Khoá chỉ nằm trong tab này.</p>
+        </div>
+      </div>
+      <label style="font-weight:600;font-size:13px;margin-top:8px;display:block">ElevenLabs API key (Eleven Music)</label><input id="kEleven" type="password" placeholder="xi-...">
+      <div class="suno-box">
+        <label class="suno-head"><input type="checkbox" id="sunoOn"> <b>Kết nối Suno</b> <span class="pill-s">ưu tiên số 1 khi bật</span></label>
+        <p class="suno-warn">Suno chưa có API công khai; chỉ có chương trình đối tác (platform.suno.com) đang thử nghiệm. Điền endpoint và khoá do Suno (hoặc cổng bạn đã được cấp phép) cung cấp, rồi chỉnh các trường dưới theo tài liệu của họ. Các dịch vụ "Suno API" không chính thức có thể vi phạm điều khoản của Suno — cân nhắc trước khi dùng cho sản phẩm thật.</p>
+        <div id="sunoCfg">
+          <div class="g2"><div><label>Base URL</label><input id="sBase" placeholder="https://… (endpoint được cấp)"></div>
+            <div><label>API key</label><input id="sKey" type="password" placeholder="khoá Suno / cổng được cấp"></div></div>
+          <div class="g2"><div><label>Model</label><input id="sModel" value="v5"></div>
+            <div><label>Header xác thực</label><input id="sAuth" value="Authorization: Bearer {{key}}"></div></div>
+          <details class="adv2"><summary>Ánh xạ API (chỉnh theo tài liệu nhà cung cấp)</summary>
+            <label>Tạo bài: phương thức + đường dẫn</label><input id="sGen" value="POST /v1/songs">
+            <label>Body JSON (biến: {{lyrics}} {{style}} {{title}} {{model}} {{vocal_gender}})</label>
+            <textarea id="sBody" style="min-height:96px;font-family:ui-monospace,monospace;font-size:12px">{"title": {{title}}, "lyrics": {{lyrics}}, "style": {{style}}, "model": {{model}}, "vocal_gender": {{vocal_gender}}, "instrumental": false}</textarea>
+            <div class="g2"><div><label>Đường dẫn lấy ID tác vụ</label><input id="sIdPath" value="id"></div>
+              <div><label>Kiểm tra trạng thái (GET)</label><input id="sStatus" value="/v1/songs/{{id}}"></div></div>
+            <div class="g2"><div><label>Trường trạng thái</label><input id="sStatePath" value="status"></div>
+              <div><label>Giá trị = xong (cách nhau dấu phẩy)</label><input id="sDone" value="complete,completed,succeeded,SUCCESS"></div></div>
+            <div class="g2"><div><label>Đường dẫn URL audio (hỗ trợ [*])</label><input id="sAudio" value="clips[*].audio_url"></div>
+              <div><label>Chờ tối đa (giây)</label><input id="sTimeout" type="number" value="300"></div></div>
+            <p class="hint" style="text-align:left;margin:6px 0 0">Nếu API trả audio ngay (không có tác vụ), để trống "ID tác vụ"; khi đó URL audio được đọc từ phản hồi đầu tiên.</p>
+          </details>
+          <p style="margin:10px 0 0"><button type="button" class="btn outline" id="sTest" style="padding:8px 14px;font-size:13px">Kiểm tra cấu hình</button> <span id="sTestMsg" class="hint"></span></p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- CHỜ -->
+  <section class="step wait" data-step="wait">
+    <div class="disc"></div>
+    <h1 class="q" id="waitTitle">Đang sáng tác bài hát cho <span id="waitName"></span></h1>
+    <p class="sub" id="waitSub">Các AI agent đang viết lời và thu âm. Thường mất dưới 1 phút.</p>
+    <div class="agents"><ul id="agentList"></ul></div>
+    <p class="err" id="err"></p>
+    <p style="text-align:center;display:none" id="retry"><button class="btn outline" onclick="go(8)">← Sửa thông tin</button></p>
+  </section>
+
+  <!-- KẾT QUẢ -->
+  <section class="step" data-step="result">
+    <div class="res-head"><span class="badge" id="resBadge">🎁 Bản nghe thử miễn phí · 40 giây</span>
+      <h1 class="q" style="margin-top:10px">Bài hát của bạn đã sẵn sàng!</h1><p class="sub" id="resSub">Nghe thử 2 bản và chọn bản bạn thích nhất.</p></div>
+    <div class="player"><h3 id="songTitle">—</h3><div class="for" id="songFor"></div><div class="takes" id="takes"></div></div>
+    <div class="lyrics locked" id="lyrics"></div>
+    <div class="paywall" id="paywall">
+      <h3>Mở khoá bài hát đầy đủ</h3>
+      <div class="price">149.000đ</div>
+      <ul class="incl"><li>Bài hát trọn vẹn (~2 phút), bản bạn đã chọn</li><li>Trang nghe riêng để gửi tặng</li><li>Chỉnh sửa miễn phí nếu chưa ưng</li></ul>
+      <label class="upsell"><input type="checkbox" value="99000" data-name="Video lời bài hát"><div><b>Video lời bài hát +99.000đ</b><br><span>Clip ngang & dọc, chữ chạy theo câu hát</span></div></label>
+      <label class="upsell"><input type="checkbox" value="49000" data-name="Bản acoustic"><div><b>Thêm bản acoustic +49.000đ</b><br><span>Cùng lời, phối guitar/piano mộc</span></div></label>
+      <button class="btn primary big" style="width:100%;justify-content:center;margin-top:8px" id="payBtn">Thanh toán <span id="payTotal">149.000đ</span> (giả lập)</button>
+      <div class="trust"><span>🔒 VietQR mọi ngân hàng</span><span>↺ Sửa miễn phí</span><span>✓ Hoàn tiền nếu không hài lòng</span></div>
+    </div>
+    <div class="done-card" id="doneCard" style="display:none"><h3 class="serif" style="color:var(--ink);margin:0">Cảm ơn bạn! Bài hát đã được mở khoá 🎉</h3>
+      <p class="sub">Nghe trọn bài ở trên hoặc tải về.</p><div class="dl" id="dl"></div></div>
+    <details class="studio-panel"><summary>Xem các agent đã làm gì (chế độ thử nghiệm)</summary>
+      <div class="agents" style="max-width:none"><ul id="agentList2"></ul></div>
+      <div class="kv" id="review"></div><div class="mono" id="tags"></div></details>
+    <p style="text-align:center;margin-top:16px"><button class="btn outline" onclick="restart()">Tạo bài hát khác</button></p>
+  </section>
+
+  <div class="nav" id="nav"><button class="btn outline" id="backBtn">← Quay lại</button><button class="btn primary" id="nextBtn" disabled>Tiếp theo →</button></div>
+  <p class="legal" id="legal">Bằng việc tiếp tục, bạn đồng ý với <u>Điều khoản</u> &amp; <u>Chính sách bảo mật</u>. Lời và nhạc được tạo bằng AI.</p>
+</div>
+<div class="ver">SongReel Studio V1.03</div>
+
+<script>
+/* ===================================================================== DANH MỤC */
+const GENRES={ballad:["Ballad Việt",72,62,"Vietnamese pop ballad, emotional piano, lush strings, slow build, heartfelt, Vietnamese vocals","soft"],
+ pop:["Pop Việt",104,64,"V-pop, modern Vietnamese pop, catchy chorus, bright synths, clean drums, Vietnamese vocals","pop"],
+ acoustic:["Acoustic",88,62,"Vietnamese acoustic pop, fingerstyle guitar, soft piano, intimate, warm, Vietnamese vocals","soft"],
+ indie:["Indie Việt",78,60,"Vietnamese indie pop, dreamy guitars, soft drums, nostalgic, youthful, Vietnamese vocals","pop"],
+ lofi:["Lofi chill",76,60,"Vietnamese lofi pop, dusty keys, mellow beat, cozy, Vietnamese vocals","pop"],
+ rnb:["R&B",84,63,"Vietnamese R&B, smooth groove, warm bass, electric piano, romantic, Vietnamese vocals","pop"],
+ edm:["EDM / Remix",120,65,"Vietnamese EDM pop remix, vinahouse influence, festive drops, bright synths, clear Vietnamese vocals","four"],
+ bolero:["Bolero",66,57,"Vietnamese bolero, nylon guitar, slow rumba rhythm, nostalgic, Vietnamese vocals","soft"],
+ rap:["Rap Việt",90,61,"Vietnamese melodic rap, warm boom bap beat, sung hook, clear flow, Vietnamese vocals","pop"],
+ kids:["Nhạc thiếu nhi",112,64,"Vietnamese children's song, playful, ukulele, xylophone, claps, simple melody, Vietnamese vocals","pop"],
+ dan_ca:["Dân ca đương đại",76,62,"contemporary Vietnamese folk, dan tranh, bamboo flute, modern pads, Vietnamese vocals","soft"],
+ lullaby:["Hát ru",64,60,"Vietnamese modern lullaby, soft guitar, gentle piano, humming, very slow, tender, Vietnamese vocals","soft"]};
+const RELS={chong:"Chồng",vo:"Vợ",nguoi_yeu_nu:"Bạn gái",nguoi_yeu_nam:"Bạn trai",con_trai:"Con trai",con_gai:"Con gái",bo:"Bố / Ba",me:"Mẹ / Má",
+ ong_ba:"Ông / Bà",chau:"Cháu",anh_chi_em:"Anh / Chị / Em",ban_than:"Bạn thân",thay_co:"Thầy / Cô",ban_than_minh:"Cho chính mình",khac:"Người khác"};
+const OCC_LABEL={sinh_nhat:"Sinh nhật",ky_niem:"Kỷ niệm ngày cưới / ngày yêu",dam_cuoi:"Đám cưới",ngay_cua_me:"Ngày của Mẹ / 8-3 / 20-10",tet:"Tết",
+ cam_on:"Cảm ơn",xin_loi:"Xin lỗi",tot_nghiep:"Tốt nghiệp",yeu_xa:"Yêu xa",tuong_nho:"Tưởng nhớ",khong_ly_do:"Không cần lý do"};
+const VOICE_LABEL={male:"Giọng nam",female:"Giọng nữ",duet:"Song ca",auto:"Chọn giúp tôi"};
+const TEMPO={cham:["Chậm",.85],vua:["Vừa",1],nhanh:["Nhanh",1.15]};
+const MOODS={cam_dong:"heartfelt, emotional",vui_tuoi:"joyful, uplifting",lang_man:"romantic, tender",hoai_niem:"nostalgic, bittersweet",binh_yen:"calm, peaceful"};
+const MOOD_LABEL={cam_dong:"Cảm động",vui_tuoi:"Vui tươi",lang_man:"Lãng mạn",hoai_niem:"Hoài niệm",binh_yen:"Bình yên"};
+const DECADES={"1990s":"90s production","2000s":"2000s pop production","2010s":"2010s production","2020s":"modern 2020s production"};
+const VOCALS={female:"warm female vocals",male:"warm male vocals",duet:"male and female duet"};
+const INST={auto:"",piano:"piano lead",guitar:"acoustic guitar lead",strings:"string section",dan_tranh:"dan tranh lead"};
+const INST_LABEL={auto:"Để AI chọn",piano:"Piano",guitar:"Guitar",strings:"Dàn dây",dan_tranh:"Đàn tranh"};
+const PRON={me:["mẹ","con"],bo:["bố","con"],vo:["em","anh"],chong:["anh","em"],nguoi_yeu_nu:["em","anh"],nguoi_yeu_nam:["anh","em"],
+ con_gai:["con","mẹ"],con_trai:["con","bố"],ong_ba:["ông bà","cháu"],chau:["cháu","ông bà"],anh_chi_em:["người","mình"],ban_than:["cậu","tớ"],
+ thay_co:["thầy cô","em"],ban_than_minh:["mình","ta"],khac:["người","tôi"]};
+const OCC={sinh_nhat:["Hôm nay sinh nhật {name} ơi","Chúc {you} tuổi mới thật bình an"],ky_niem:["Bao năm bên nhau {name} ơi","Mình vẫn nắm tay qua bao mùa"],
+ dam_cuoi:["Ngày vui hôm nay {name} ơi","Trăm năm mình chung một con đường"],ngay_cua_me:["Gửi đến {name} lời yêu thương","Cảm ơn {you} vì những tháng năm"],
+ tet:["Xuân về rồi {name} ơi","Nhà mình sum vầy ấm áp yêu thương"],tot_nghiep:["Chúc mừng {name} bước sang trang mới","Tương lai rộng mở đang chờ {you}"],
+ cam_on:["Cảm ơn {name} thật nhiều","Vì đã luôn ở bên {me} những ngày qua"],xin_loi:["{name} ơi cho {me} xin lỗi","Mong {you} hiểu lòng {me} vẫn chân thành"],
+ yeu_xa:["Dù xa xôi {name} ơi","Lòng {me} vẫn hướng về {you} mỗi ngày"],tuong_nho:["{name} ơi {me} vẫn nhớ","Như ánh sao soi sáng mỗi đêm"],
+ khong_ly_do:["Chẳng cần dịp gì {name} ơi","Hôm nay hát tặng {you} thôi"]};
+const $=id=>document.getElementById(id);
+
+/* ===================================================================== TRẠNG THÁI BẢNG HỎI */
+const A={rel:null,occ:null,genre:null,voice:null,tempo:"vua",mood:"cam_dong",decade:"2020s",inst:"auto"};
+const OPTIONS={rel:RELS,occ:OCC_LABEL,genre:Object.fromEntries(Object.entries(GENRES).map(([k,v])=>[k,v[0]])),voice:VOICE_LABEL,
+ tempo:Object.fromEntries(Object.entries(TEMPO).map(([k,v])=>[k,v[0]])),mood:MOOD_LABEL,decade:{"1990s":"Thập niên 90","2000s":"2000s","2010s":"2010s","2020s":"Hiện đại"},inst:INST_LABEL};
+document.querySelectorAll(".chips[data-key]").forEach(box=>{const key=box.dataset.key;
+ box.innerHTML=Object.entries(OPTIONS[key]).map(([k,v])=>`<button class="chip ${A[key]===k?"on":""}" data-v="${k}">${v}</button>`).join("");
+ box.onclick=e=>{const b=e.target.closest(".chip");if(!b)return;A[key]=b.dataset.v;box.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b));
+  validate();if(box.dataset.auto)setTimeout(()=>go(cur+1),220);};});
+let cur=1;const TOTAL=8;
+function go(n){cur=n;document.querySelectorAll(".step").forEach(s=>s.classList.toggle("on",String(s.dataset.step)===String(n)));
+ const isQ=typeof n==="number";$("progWrap").style.display=isQ?"block":"none";$("nav").style.display=isQ?"flex":"none";$("legal").style.display=isQ&&n<=2?"block":"none";
+ $("backTop").hidden=!(isQ&&n>1);if(isQ){$("stepTxt").textContent=`Bước ${n}/${TOTAL}`;const pct=Math.round(n/TOTAL*100);$("pctTxt").textContent=`Đã hoàn thành ${pct}%`;
+  $("progBar").style.width=pct+"%";$("backBtn").style.visibility=n>1?"visible":"hidden";$("nextBtn").innerHTML=n===TOTAL?"🎵 Tạo bản nghe thử":"Tiếp theo →";
+  const f=document.querySelector(`.step[data-step="${n}"] input, .step[data-step="${n}"] textarea`);if(f&&n!==8)setTimeout(()=>f.focus(),50);}
+ validate();window.scrollTo({top:0,behavior:"smooth"});}
+function validate(){let ok=true;
+ if(cur===1)ok=!!A.rel;if(cur===2)ok=$("f_name").value.trim().length>=2;if(cur===3)ok=!!A.occ;if(cur===4)ok=!!A.genre&&!!A.voice;
+ if(cur===6){const n=$("f_mem").value.trim().length;$("memCount").textContent=`${n} / 20 ký tự tối thiểu`;$("memWarn").textContent=n&&n<20?"Kể thêm một chút nữa nhé":"";$("memWarn").className=n&&n<20?"warn":"";ok=n>=20;}
+ if(cur===8){const e=$("f_email").value.trim();ok=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);}
+ $("nextBtn").disabled=!ok;return ok;}
+["f_name","f_mem","f_email"].forEach(id=>$(id).addEventListener("input",validate));
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"&&!$("nextBtn").disabled)$("nextBtn").click();});
+$("nextBtn").onclick=()=>{if(!validate())return;if(cur<TOTAL)go(cur+1);else runPipeline();};
+$("backBtn").onclick=$("backTop").onclick=()=>{if(typeof cur==="number"&&cur>1)go(cur-1);};
+function restart(){stop();STATE=null;go(1);}
+
+/* ===================================================================== TRACE (hiển thị agent) */
+let TRACE=[];
+const AGENT_DESC={"Brief":"Đọc câu chuyện, chuẩn hoá và kiểm duyệt","Lyricist":"Viết lời bài hát","Lyric Critic":"Chấm lời: tên, độ dài câu, vần, thanh điệu",
+ "Music Director":"Chọn phong cách, tempo, giọng hát","Producer":"Thu âm và phối khí","Audio QC":"Kiểm tra chất lượng, chọn bản hay nhất","Preview":"Cắt bản nghe thử 40 giây"};
+function step(agent,role){const t={agent,role,state:"run",summary:AGENT_DESC[agent]||role,t0:performance.now(),ms:0};TRACE.push(t);draw();return t;}
+function done(t,summary,state="ok"){t.state=state;t.summary=summary;t.ms=performance.now()-t.t0;draw();}
+function draw(){const html=TRACE.map(t=>`<li><span class="st ${t.state}"></span><div><div class="nm">${t.agent}</div><div class="ds">${t.summary}</div></div><span class="tm">${t.state==="run"?"":(t.ms/1000).toFixed(1)+"s"}</span></li>`).join("");
+ $("agentList").innerHTML=html;$("agentList2").innerHTML=html;}
+const tick=()=>new Promise(r=>setTimeout(r,250));
+
+/* ===================================================================== 1. BRIEF */
+const BLOCK=[/\bgiết\b/,/khủng bố/,/ma túy/,/khiêu dâm/,/lừa đảo/,/lời bài hát của/,/cover bài/];
+function briefAgent(){const t=step("Brief","");
+ const name=$("f_name").value.trim();const memories=$("f_mem").value.split(/\n+|(?<=[.!?])\s+/).map(x=>x.trim().replace(/\d{6,}/g,"")).filter(x=>x.length>3);
+ const qual=$("f_qual").value.trim();if(qual)memories.push(qual);
+ const text=(name+" "+memories.join(" ")).toLowerCase();if(BLOCK.find(r=>r.test(text))){done(t,"Nội dung chưa phù hợp chính sách","err");throw Error("Nội dung chưa phù hợp chính sách nội dung");}
+ const voice=A.voice==="auto"?(["vo","nguoi_yeu_nu","me","con_gai"].includes(A.rel)?"male":"female"):A.voice;
+ const b={name,rel:A.rel,occ:A.occ,memories,sender:$("f_sender").value.trim(),dedication:$("f_ded").value.trim(),genre:A.genre,voice,tempo:A.tempo,mood:A.mood,decade:A.decade,inst:A.inst};
+ done(t,`Brief cho “${name}”: ${memories.length} chi tiết, ${GENRES[b.genre][0]}, ${VOICE_LABEL[voice]}`);return b;}
+
+/* ===================================================================== 2. LYRICIST */
+const cap=s=>s?s[0].toUpperCase()+s.slice(1):s, low=s=>s?s[0].toLowerCase()+s.slice(1):s;
+const clean=(s,n=9)=>s.replace(/["“”'!?;:()]/g,"").trim().split(/\s+/).slice(0,n).join(" ");
+function mockLyrics(b){const[you,me]=PRON[b.rel]||PRON.khac;const[l1,l2]=OCC[b.occ]||OCC.cam_on;
+ const m=[...b.memories.map(x=>clean(x)),"những ngày bình yên bên nhau","nụ cười hiền mỗi sớm mai","lời cảm ơn chưa kịp nói"];
+ const f=s=>s.replaceAll("{name}",b.name).replaceAll("{you}",you).replaceAll("{me}",me);
+ const chorus=[f(l1),`${cap(me)} hát khúc ca này tặng ${you}`,f(l2),`Mãi là ánh sáng trong tim ${me}`];
+ const title={sinh_nhat:`Tuổi Mới Của ${b.name}`,ky_niem:`Bao Năm Bên ${b.name}`,tuong_nho:`Nhớ ${b.name}`}[b.occ]||`Khúc Ca Cho ${b.name}`;
+ return{title,source:"mẫu offline",sections:[{name:"Intro",kind:"intro",lines:[]},
+  {name:"Verse 1",kind:"verse",lines:[`${cap(me)} vẫn nhớ ${low(m[0])}`,"Những tháng ngày êm đềm trôi qua",`Có ${you} ở đây mọi điều thật gần`,"Bình yên như nắng sớm hiên nhà"]},
+  {name:"Chorus",kind:"chorus",lines:chorus},
+  {name:"Verse 2",kind:"verse",lines:[`${cap(me)} chẳng quên ${low(m[1])}`,"Từng điều nhỏ thôi mà ấm lòng",`Và điều ${me} giữ trong tim bấy lâu`,cap(low(m[2]))]},
+  {name:"Chorus 2",kind:"chorus",lines:chorus},{name:"Outro",kind:"outro",lines:[`${b.name} ơi cảm ơn vì tất cả`,`Khúc ca này mãi là của ${you}`]}]};}
+const SYS=`Bạn là nhạc sĩ Việt Nam viết lời bài hát tặng riêng một người. Viết tiếng Việt tự nhiên, dễ hát: mỗi câu 6–10 chữ, có vần, câu ngân dài ưu tiên kết thanh bằng. Xưng hô đúng quan hệ. Tên người nhận phải có trong điệp khúc. Dùng chi tiết kỷ niệm cụ thể, không bịa sự kiện lớn, không chép lời bài có sẵn.
+Cấu trúc: Intro (không lời), Verse 1 (4 câu), Chorus (4 câu), Verse 2 (4 câu), Chorus 2 (lặp lại), Outro (2 câu).
+Chỉ trả JSON: {"title":str,"sections":[{"name":str,"kind":"intro|verse|chorus|outro","lines":[str]}]}`;
+async function claude(system,prompt){const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"x-api-key":$("kClaude").value.trim(),
+ "anthropic-version":"2023-06-01","content-type":"application/json","anthropic-dangerous-direct-browser-access":"true"},
+ body:JSON.stringify({model:"claude-sonnet-5-5",max_tokens:3000,temperature:.8,system,messages:[{role:"user",content:prompt}]})});
+ if(!r.ok)throw Error("Claude "+r.status+": "+(await r.text()).slice(0,200));const j=await r.json();const txt=j.content.map(c=>c.text||"").join("");
+ return JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);}
+async function openai(system,prompt){const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+ headers:{"Authorization":"Bearer "+$("kOpenAI").value.trim(),"Content-Type":"application/json"},
+ body:JSON.stringify({model:$("oModel").value.trim()||"gpt-5.6-sol",response_format:{type:"json_object"},
+  messages:[{role:"system",content:system},{role:"user",content:prompt}]})});
+ if(!r.ok)throw Error("OpenAI "+r.status+": "+(await r.text()).slice(0,200));const j=await r.json();
+ return JSON.parse(j.choices[0].message.content.match(/\{[\s\S]*\}/)[0]);}
+const hasClaude=()=>!!$("kClaude").value.trim(), hasGPT=()=>$("gptOn").checked&&!!$("kOpenAI").value.trim();
+function writerOrder(){const w=hasGPT()?$("writer").value:"claude";const o=[];
+ if(w==="openai")o.push("openai");else if(w==="claude")o.push("claude");else{o.push("openai","claude");}
+ return o.filter(x=>x==="openai"?hasGPT():hasClaude());}
+const CALL={claude:(s,p)=>claude(s,p),openai:(s,p)=>openai(s,p)}, NAME={claude:"Claude",openai:"ChatGPT"};
+async function lyricistAgent(b,feedback,prev){const t=step("Lyricist",feedback?"Sửa lời theo góp ý":"Viết lời từ brief");await tick();
+ const[you,me]=PRON[b.rel]||PRON.khac;
+ let p=`Người nhận: ${b.name} (gọi là "${you}", người hát xưng "${me}")\nDịp: ${OCC_LABEL[b.occ]}\nThể loại: ${GENRES[b.genre][0]}\nNgười gửi: ${b.sender}\nKỷ niệm:\n- ${b.memories.join("\n- ")}`;
+ if(feedback&&prev)p+=`\n\nLời bản trước:\n${JSON.stringify(prev.sections)}\nGóp ý cần sửa: ${feedback}`;
+ const order=writerOrder();let L=null;const errs=[];
+ if(hasGPT()&&$("writer").value==="both"&&hasClaude()&&!feedback){
+  const res=await Promise.allSettled(["openai","claude"].map(k=>CALL[k](SYS,p).then(x=>(x.source=NAME[k],x))));
+  const ok=res.filter(r=>r.status==="fulfilled").map(r=>r.value).filter(x=>x.sections);
+  res.filter(r=>r.status==="rejected").forEach(r=>errs.push(r.reason.message));
+  if(ok.length){ok.forEach(x=>x._score=critique(x,b.name).score);ok.sort((a,c)=>c._score-a._score);L=ok[0];
+   if(ok.length>1)L.source+=ok[0]._score===ok[1]._score?` (hoà ${ok[0]._score} điểm với ${ok[1].source}, chọn bản này)`:` (thắng ${ok[0]._score} – ${ok[1]._score} điểm trước ${ok[1].source})`;}}
+ else for(const k of order){try{L=await CALL[k](SYS,p);if(!L.sections)throw Error("thiếu sections");L.source=NAME[k];break;}catch(e){errs.push(NAME[k]+": "+e.message);L=null;}}
+ if(!L){L=mockLyrics(b);L.source="mẫu offline";if(feedback)L.sections.forEach(s=>s.lines=s.lines.map(l=>l.split(/\s+/).slice(0,11).join(" ")));}
+ done(t,`'${L.title}' – ${L.sections.reduce((a,s)=>a+s.lines.length,0)} câu (${L.source})${feedback?" · bản sửa":""}`+(errs.length?" · lỗi: "+errs.join("; ").slice(0,160):""),errs.length&&L.source==="mẫu offline"?"err":"ok");return L;}
+
+/* ===================================================================== 3. LYRIC CRITIC */
+const TONES={"\u0301":"sắc","\u0300":"huyền","\u0309":"hỏi","\u0303":"ngã","\u0323":"nặng"};
+const INITIALS=["ngh","ng","nh","ch","tr","th","ph","kh","gh","gi","qu","b","c","d","đ","g","h","k","l","m","n","p","r","s","t","v","x"];
+function toneOf(w){for(const ch of w.toLowerCase().normalize("NFD"))if(TONES[ch])return TONES[ch];return"ngang";}
+function rhymeKey(w){let b=[...w.toLowerCase().normalize("NFD")].filter(c=>!TONES[c]).join("").normalize("NFC").replace(/[^\p{L}\p{N}]/gu,"");
+ for(const i of INITIALS)if(b.startsWith(i)&&b.length>i.length)return b.slice(i.length);return b;}
+function critique(L,name){const issues=[],notes=[];const sung=L.sections.flatMap(s=>s.lines);
+ if(sung.length<10)issues.push(`chỉ có ${sung.length} câu (cần ≥10)`);
+ const long=sung.filter(l=>l.split(/\s+/).length>12);if(long.length)issues.push(`${long.length} câu dài hơn 12 chữ`);
+ const last=name.split(/\s+/).pop().toLowerCase();const ch=L.sections.filter(s=>s.kind==="chorus").flatMap(s=>s.lines);
+ if(!ch.some(l=>l.toLowerCase().includes(last)))issues.push("điệp khúc chưa có tên người nhận");
+ let pairs=0,rh=0;for(const s of L.sections)for(let i=0;i+1<s.lines.length;i+=2){const a=s.lines[i].split(/\s+/).pop(),c=s.lines[i+1].split(/\s+/).pop();pairs++;const ka=rhymeKey(a),kc=rhymeKey(c);if(ka===kc||ka.slice(-1)===kc.slice(-1))rh++;}
+ const rhyme=pairs?rh/pairs:0;if(rhyme<.3)notes.push(`ít vần (${rh}/${pairs} cặp câu)`);
+ const ends=sung.map(l=>toneOf(l.split(/\s+/).pop()));const flat=ends.filter(t=>t==="ngang"||t==="huyền").length/(ends.length||1);
+ if(flat<.5)notes.push(`chỉ ${Math.round(flat*100)}% câu kết thanh bằng`);
+ const score=Math.round(Math.max(0,100-25*issues.length-5*notes.length)*(.8+.2*rhyme));return{issues,notes,score,rhyme,flat};}
+async function criticLoop(b){let L=await lyricistAgent(b);let rev;
+ for(let r=0;r<=2;r++){const t=step("Lyric Critic","Chấm: độ dài câu, tên, vần, thanh điệu");await tick();rev=critique(L,b.name);
+  if(!rev.issues.length){done(t,`Đạt, điểm ${rev.score}`);return{L,rev};}
+  done(t,`Trả về sửa (vòng ${r+1}): ${rev.issues.join("; ")}`,"back");if(r===2)throw Error("Lời chưa đạt: "+rev.issues.join("; "));
+  L=await lyricistAgent(b,"Sửa: "+rev.issues.join("; "),L);}
+ return{L,rev};}
+
+/* ===================================================================== 4. MUSIC DIRECTOR + kế hoạch nhịp */
+function buildPlan(L,bpm,key,drums){const beat=60/bpm,bar=4*beat;let t=0;const sections=[];
+ for(const s of L.sections){const lines=s.lines.filter(x=>x.trim());const bars=lines.length?2*lines.length+(s.kind==="outro"?2:0):2;const out=[];
+  lines.forEach((text,i)=>{const ls=t+i*8*beat;const ws=text.split(/[\s,.]+/).filter(Boolean),n=ws.length;
+   const step=[1,.75,.5].find(x=>x*Math.max(n-1,1)<=5.5)||5.5/Math.max(n-1,1);
+   const words=ws.map((w,j)=>({w,start:ls+(0.5+j*step)*beat}));words.forEach((x,j)=>x.end=j+1<n?words[j+1].start-.03:ls+7*beat);
+   out.push({text,start:words[0]?.start??ls,end:words.at(-1)?.end??ls,words});});
+  sections.push({name:s.name,kind:s.kind,start:t,bars,lines:out});t+=bars*bar;}
+ return{bpm,beat,bar,key,drums,total:t,sections};}
+function directorAgent(b,L){const t=step("Music Director","Phong cách, tempo, giọng, thẻ cấu trúc");
+ const g=GENRES[b.genre];const bpm=Math.round(g[1]*TEMPO[b.tempo][1]);
+ const style=[g[3],MOODS[b.mood],DECADES[b.decade],VOCALS[b.voice],INST[b.inst],bpm+" BPM"].filter(Boolean).join(", ");
+ const tag={intro:"[Intro]",verse:"[Verse]",chorus:"[Chorus]",outro:"[Outro]"};
+ const tagged=L.sections.map(s=>(tag[s.kind]||"[Verse]")+"\n"+s.lines.join("\n")).join("\n\n");
+ const plan=buildPlan(L,bpm,g[2],g[4]);done(t,`${g[0]} · ${TEMPO[b.tempo][0]} ${bpm} BPM · ${VOCALS[b.voice]}`);return{style,tagged,plan,bpm};}
+
+/* ===================================================================== 5. PRODUCER (tổng hợp trong trình duyệt / Eleven Music) */
+const SR=44100,hz=m=>440*Math.pow(2,(m-69)/12);
+const FORM={a:[800,1250,2600],e:[500,1850,2550],i:[320,2300,3000],o:[520,900,2450],u:[350,780,2300],y:[320,2300,3000]};
+function vowel(w){const b=[...w.toLowerCase().normalize("NFD")].filter(c=>/[a-z]/.test(c)).join("");const v=[...b].filter(c=>"aeiouy".includes(c));return v.length?v[Math.floor(v.length/2)]:"a";}
+async function synthTake(plan,voice,keyShift){const len=Math.ceil((plan.total+2.5)*SR);const ctx=new OfflineAudioContext(2,len,SR);
+ const master=ctx.createGain();master.gain.value=.55;const comp=ctx.createDynamicsCompressor();master.connect(comp);comp.connect(ctx.destination);
+ const verb=ctx.createConvolver();const ir=ctx.createBuffer(2,SR*1.4,SR);for(let c=0;c<2;c++){const d=ir.getChannelData(c);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/SR/.35);}
+ verb.buffer=ir;const wet=ctx.createGain();wet.gain.value=.22;verb.connect(wet);wet.connect(master);
+ const key=plan.key+keyShift,prog=[[0,[0,4,7]],[7,[0,4,7]],[9,[0,3,7]],[5,[0,4,7]]];const nb=Math.round(plan.total/plan.bar);
+ const firstV=plan.sections.find(s=>s.lines.length)?.start??0;
+ const noise=ctx.createBuffer(1,SR,SR);{const d=noise.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
+ function tone(f,t0,dur,type,gain,dest,att=.01,rel=.3){const o=ctx.createOscillator();o.type=type;o.frequency.value=f;const g=ctx.createGain();
+  g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(gain,t0+att);g.gain.setTargetAtTime(0,t0+dur,rel/3);o.connect(g);g.connect(dest);o.start(t0);o.stop(t0+dur+rel);}
+ const padF=ctx.createBiquadFilter();padF.type="lowpass";padF.frequency.value=1800;padF.connect(master);padF.connect(verb);
+ for(let b=0;b<nb;b++){const[root,tri]=prog[b%4],t0=b*plan.bar;
+  for(const iv of tri)tone(hz(key-12+root+iv),t0,plan.bar,"sawtooth",.025,padF,.25,.6);
+  for(let k=0;k<8;k++){const iv=tri[k%3]+(k%4===3?12:0);tone(hz(key+root+iv),t0+k*plan.beat/2,.25,"triangle",.05,master,.004,.5);}
+  for(const k of plan.drums==="soft"?[0,2]:[0,2.5])tone(hz(key-24+root),t0+k*plan.beat,plan.beat*1.2,"sine",.22,master,.01,.2);
+  if(t0>=firstV-.01||plan.drums==="four"){const kicks=plan.drums==="four"?[0,1,2,3]:plan.drums==="pop"?[0,2.5]:[0];
+   for(const k of kicks){const o=ctx.createOscillator(),g=ctx.createGain(),tt=t0+k*plan.beat;o.frequency.setValueAtTime(130,tt);o.frequency.exponentialRampToValueAtTime(45,tt+.12);
+    g.gain.setValueAtTime(plan.drums==="soft"?.25:.5,tt);g.gain.exponentialRampToValueAtTime(.001,tt+.3);o.connect(g);g.connect(master);o.start(tt);o.stop(tt+.35);}
+   for(let k=0;k<8;k++){const s=ctx.createBufferSource();s.buffer=noise;const f=ctx.createBiquadFilter();f.type="highpass";f.frequency.value=7000;const g=ctx.createGain(),tt=t0+k*plan.beat/2;
+    g.gain.setValueAtTime(plan.drums==="soft"?.04:.08,tt);g.gain.exponentialRampToValueAtTime(.001,tt+.05);s.connect(f);f.connect(g);g.connect(master);s.start(tt);s.stop(tt+.06);}
+   for(const k of[1,3]){if(plan.drums==="soft")continue;const s=ctx.createBufferSource();s.buffer=noise;const f=ctx.createBiquadFilter();f.type="bandpass";f.frequency.value=2000;
+    const g=ctx.createGain(),tt=t0+k*plan.beat;g.gain.setValueAtTime(.25,tt);g.gain.exponentialRampToValueAtTime(.001,tt+.18);s.connect(f);f.connect(g);g.connect(master);s.start(tt);s.stop(tt+.2);}}}
+ const scale=[0,2,4,5,7,9,11,12,14],contour=[2,3,4,4,3,2,3,4,5,4,2,1,2,3];const vc=key+(voice==="male"?0:12)-12;const vbus=ctx.createGain();vbus.gain.value=.9;vbus.connect(master);vbus.connect(verb);
+ plan.sections.forEach(sec=>sec.lines.forEach((ln,li)=>ln.words.forEach((w,wi)=>{let d=contour[(wi+li*3)%contour.length]+(sec.kind==="chorus"?2:0);
+  if(wi===ln.words.length-1)d=li%2?0:2;const sing=voice==="duet"?(li%2?vc-12:vc):vc;const f0=hz(sing+scale[Math.min(d,8)]);const dur=Math.max(w.end-w.start,.12),t0=w.start;
+  const o=ctx.createOscillator();o.type="sawtooth";o.frequency.setValueAtTime(f0*.97,t0);o.frequency.linearRampToValueAtTime(f0,t0+.05);
+  const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=5.4;lg.gain.value=f0*.01;lfo.connect(lg);lg.connect(o.frequency);
+  const env=ctx.createGain();env.gain.setValueAtTime(0,t0);env.gain.linearRampToValueAtTime(.5,t0+.03);env.gain.setValueAtTime(.5,t0+dur-.08);env.gain.linearRampToValueAtTime(0,t0+dur);
+  const fm=FORM[vowel(w.w)];const mul=voice==="male"?1:1.1;
+  fm.forEach((F,k)=>{const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.frequency.value=F*mul;bp.Q.value=F/[90,120,180][k];const g=ctx.createGain();g.gain.value=[1,.6,.3][k]*3;o.connect(bp);bp.connect(g);g.connect(env);});
+  env.connect(vbus);o.start(t0);o.stop(t0+dur+.05);lfo.start(t0);lfo.stop(t0+dur+.05);})));
+ return ctx.startRendering();}
+async function elevenTake(plan,L,dir,voice){const sections=plan.sections.map(s=>({section_name:s.name,
+  positive_local_styles:s.lines.length?[s.kind==="chorus"?"powerful emotional chorus":"intimate storytelling"]:["instrumental"],
+  negative_local_styles:s.lines.length?[]:["vocals"],duration_ms:Math.round(Math.min(120000,Math.max(3000,s.bars*plan.bar*1000))),lines:s.lines.map(l=>l.text)}));
+ const r=await fetch("https://api.elevenlabs.io/v1/music?output_format=mp3_44100_192",{method:"POST",headers:{"xi-api-key":$("kEleven").value.trim(),"Content-Type":"application/json"},
+  body:JSON.stringify({composition_plan:{positive_global_styles:[dir.style,"sung in Vietnamese"],negative_global_styles:["english lyrics","spoken word"],sections},respect_sections_durations:true,model_id:"music_v1"})});
+ if(!r.ok)throw Error("ElevenLabs "+r.status+": "+(await r.text()).slice(0,160));
+ const ac=new (window.AudioContext||window.webkitAudioContext)();return ac.decodeAudioData(await r.arrayBuffer());}
+/* ---------- Kết nối Suno (cấu hình được, theo tài liệu đối tác) ---------- */
+const SUNO_FIELDS=["sBase","sModel","sAuth","sGen","sBody","sIdPath","sStatus","sStatePath","sDone","sAudio","sTimeout","oModel","writer"];
+try{const saved=JSON.parse(localStorage.getItem("songreel_suno_cfg")||"{}");SUNO_FIELDS.forEach(k=>{if(saved[k]!=null)$(k).value=saved[k];});}catch{}
+function saveSuno(){try{localStorage.setItem("songreel_suno_cfg",JSON.stringify(Object.fromEntries(SUNO_FIELDS.map(k=>[k,$(k).value]))));}catch{}}
+SUNO_FIELDS.forEach(k=>$(k).addEventListener("change",saveSuno));
+$("gptOn").onchange=()=>$("gptCfg").style.display=$("gptOn").checked?"block":"none";
+$("sunoOn").onchange=()=>$("sunoCfg").style.display=$("sunoOn").checked?"block":"none";
+const sunoOn=()=>$("sunoOn").checked&&$("sBase").value.trim()&&$("sKey").value.trim();
+function getPath(obj,path){if(!path)return obj;let cur=[obj];
+ for(const part of path.replace(/\[(\d+)\]/g,".$1").split(".").filter(Boolean)){const next=[];
+  for(const o of cur){if(o==null)continue;if(part.endsWith("[*]")){const arr=part==="[*]"?o:o[part.slice(0,-3)];if(Array.isArray(arr))next.push(...arr);}else next.push(o[part]);}cur=next;}
+ return path.includes("[*]")?cur.filter(x=>x!=null):cur[0];}
+function sunoHeaders(){const h={"Content-Type":"application/json"};const[n,...v]=$("sAuth").value.split(":");if(n&&v.length)h[n.trim()]=v.join(":").trim().replaceAll("{{key}}",$("sKey").value.trim());return h;}
+function sunoBody(L,dir,b){const lyr=dir.tagged,j=x=>JSON.stringify(x);
+ const style=dir.style.length>200?dir.style.slice(0,dir.style.lastIndexOf(",",200)):dir.style;
+ const raw=$("sBody").value.replaceAll("{{lyrics}}",j(lyr)).replaceAll("{{style}}",j(style)).replaceAll("{{title}}",j(L.title))
+  .replaceAll("{{model}}",j($("sModel").value.trim())).replaceAll("{{vocal_gender}}",j(b.voice==="male"?"m":b.voice==="female"?"f":""));
+ return JSON.parse(raw);}
+function checkSunoCfg(){const errs=[];if(!/^https?:\/\//.test($("sBase").value.trim()))errs.push("Base URL phải bắt đầu bằng https://");
+ if(!$("sKey").value.trim())errs.push("Thiếu API key");if(!/^(POST|PUT)\s+\//i.test($("sGen").value.trim()))errs.push("Dòng 'Tạo bài' phải dạng: POST /đường-dẫn");
+ try{sunoBody({title:"t"},{tagged:"l",style:"s"},{voice:"female"});}catch(e){errs.push("Body JSON không hợp lệ: "+e.message);}
+ if(!$("sAudio").value.trim())errs.push("Thiếu đường dẫn URL audio");return errs;}
+$("sTest").onclick=()=>{const e=checkSunoCfg();$("sTestMsg").textContent=e.length?"⚠ "+e.join("; "):"✓ Cấu hình hợp lệ (chưa gọi API để không tốn lượt tạo)";$("sTestMsg").style.color=e.length?"var(--bad)":"var(--ok)";};
+async function sunoTakes(b,L,dir,onStatus){const e=checkSunoCfg();if(e.length)throw Error(e.join("; "));
+ const base=$("sBase").value.trim().replace(/\/$/,"");const[method,path]=$("sGen").value.trim().split(/\s+/);
+ const r=await fetch(base+path,{method:method.toUpperCase(),headers:sunoHeaders(),body:JSON.stringify(sunoBody(L,dir,b))});
+ if(!r.ok)throw Error("Suno "+r.status+": "+(await r.text()).slice(0,160));let res=await r.json();
+ const idPath=$("sIdPath").value.trim();
+ if(idPath){const id=getPath(res,idPath);if(!id)throw Error("Không đọc được ID tác vụ ở '"+idPath+"'");
+  const doneSet=$("sDone").value.split(",").map(x=>x.trim().toLowerCase());const until=Date.now()+(+$("sTimeout").value||300)*1000;
+  while(true){if(Date.now()>until)throw Error("Suno quá thời gian chờ");await new Promise(r=>setTimeout(r,5000));
+   const st=await fetch(base+$("sStatus").value.trim().replaceAll("{{id}}",encodeURIComponent(id)),{headers:sunoHeaders()});
+   if(!st.ok)throw Error("Suno trạng thái "+st.status);res=await st.json();const state=String(getPath(res,$("sStatePath").value.trim())??"").toLowerCase();
+   onStatus&&onStatus(state||"đang xử lý");if(/fail|error/.test(state))throw Error("Suno báo lỗi: "+state);if(doneSet.includes(state))break;}}
+ let urls=getPath(res,$("sAudio").value.trim());urls=(Array.isArray(urls)?urls:[urls]).filter(Boolean).slice(0,2);
+ if(!urls.length)throw Error("Không tìm thấy URL audio ở '"+$("sAudio").value.trim()+"'");
+ const ac=new (window.AudioContext||window.webkitAudioContext)();
+ return Promise.all(urls.map(async u=>{const a=await fetch(u);if(!a.ok)throw Error("Tải audio "+a.status);return ac.decodeAudioData(await a.arrayBuffer());}));}
+
+async function producerAgent(b,L,dir){const takes=[];
+ if(sunoOn()){const t=step("Producer","Gửi lời + phong cách tới Suno");
+  try{const bufs=await sunoTakes(b,L,dir,s=>{t.summary="Suno: "+s;draw();});
+   bufs.forEach((buf,i)=>takes.push({buf,src:"Suno "+$("sModel").value.trim()}));
+   done(t,`Suno trả ${bufs.length} bản (${bufs.map(x=>Math.round(x.duration)+"s").join(", ")})`);
+   if(takes.length>=2)return takes;}
+  catch(e){done(t,"Suno lỗi, chuyển nhà cung cấp kế tiếp: "+e.message+(/Failed to fetch/.test(e.message)?" (có thể do CORS — dùng bản server)":""),"err");}}
+ if(takes.length===1){const t=step("Producer","Thu thêm bản 2");const buf=await synthTake(dir.plan,b.voice,2);takes.push({buf,src:"tổng hợp trong trình duyệt"});done(t,"Bản 2 (tổng hợp), vì Suno chỉ trả 1 bản");return takes;}
+ if(!$("kEleven").value.trim()){const ts=[0,1].map(v=>step("Producer",`Đang thu bản ${v+1}…`));await tick();
+  const bufs=await Promise.all([0,2].map(k=>synthTake(dir.plan,b.voice,k)));
+  bufs.forEach((buf,v)=>{takes.push({buf,src:"tổng hợp trong trình duyệt"});done(ts[v],`Bản ${v+1} (tổng hợp trong trình duyệt), ${buf.duration.toFixed(0)}s`);});return takes;}
+ for(let v=0;v<2;v++){const t=step("Producer",`Thu bản ${v+1}`);await tick();let buf,src;
+  if($("kEleven").value.trim()){try{buf=await elevenTake(dir.plan,L,dir,b.voice);src="Eleven Music";}catch(e){done(t,"ElevenLabs lỗi, chuyển bộ tổng hợp: "+e.message,"err");}}
+  if(!buf){buf=await synthTake(dir.plan,b.voice,[0,2][v]);src="tổng hợp trong trình duyệt";}
+  takes.push({buf,src});if(t.state==="run")done(t,`Bản ${v+1} (${src}), ${buf.duration.toFixed(0)}s`);else{const t2=step("Producer",`Bản ${v+1}`);done(t2,`Bản ${v+1} (${src}), ${buf.duration.toFixed(0)}s`);}}
+ return takes;}
+
+/* ===================================================================== 6. AUDIO QC */
+function qcAgent(takes){const t=step("Audio QC","Đo độ dài, độ lớn, đỉnh, khoảng lặng");
+ const rep=takes.map((tk,i)=>{const d=tk.buf.getChannelData(0);let sum=0,peak=0,clip=0;for(let k=0;k<d.length;k+=4){const x=Math.abs(d[k]);sum+=x*x;if(x>peak)peak=x;if(x>.999)clip++;}
+  const rms=Math.sqrt(sum/(d.length/4)),db=20*Math.log10(rms+1e-9);let gap=0,maxGap=0;const win=SR/10;
+  for(let k=0;k<d.length;k+=win){let e=0;for(let j=k;j<Math.min(k+win,d.length);j+=8)e=Math.max(e,Math.abs(d[j]));if(e<.01){gap+=.1;maxGap=Math.max(maxGap,gap);}else gap=0;}
+  const checks={duration:tk.buf.duration>=40,loud:db>-30&&db<-6,clip:clip/(d.length/4)<.001,silence:maxGap<4};
+  const passed=Object.values(checks).every(Boolean);return{i,passed,db,peak,score:(passed?100:0)-Math.abs(db+16)};});
+ rep.sort((a,b)=>b.score-a.score);const ok=rep.filter(r=>r.passed);
+ if(!ok.length){done(t,"Không bản nào đạt","err");throw Error("Không bản nhạc nào đạt kiểm định");}
+ done(t,`${ok.length}/${rep.length} bản đạt · chọn bản ${ok[0].i+1} (${ok[0].db.toFixed(1)} dBFS)`);return ok[0].i;}
+
+
+function wav(buf){const n=buf.length,ch=buf.numberOfChannels,out=new DataView(new ArrayBuffer(44+n*ch*2));const W=(o,s)=>[...s].forEach((c,i)=>out.setUint8(o+i,c.charCodeAt(0)));
+ W(0,"RIFF");out.setUint32(4,36+n*ch*2,true);W(8,"WAVE");W(12,"fmt ");out.setUint32(16,16,true);out.setUint16(20,1,true);out.setUint16(22,ch,true);out.setUint32(24,buf.sampleRate,true);
+ out.setUint32(28,buf.sampleRate*ch*2,true);out.setUint16(32,ch*2,true);out.setUint16(34,16,true);W(36,"data");out.setUint32(40,n*ch*2,true);
+ const d=[...Array(ch).keys()].map(c=>buf.getChannelData(c));let o=44;for(let i=0;i<n;i++)for(let c=0;c<ch;c++){const x=Math.max(-1,Math.min(1,d[c][i]));out.setInt16(o,x*32767,true);o+=2;}
+ return URL.createObjectURL(new Blob([out],{type:"audio/wav"}));}
+
+
+/* ===================================================================== 7. PREVIEW + PHÁT NHẠC */
+function previewAgent(dir){const t=step("Preview","");const ch=dir.plan.sections.find(s=>s.kind==="chorus");
+ const start=Math.max((ch?ch.start:0)-4,0);done(t,`Nghe thử ${Math.round(start)}s → ${Math.round(start+40)}s quanh điệp khúc, bản đầy đủ đang khoá`);return{start,len:40};}
+let AC,curP=null,STATE=null,raf;
+function stop(){if(curP){try{curP.src.stop()}catch{}curP=null;}cancelAnimationFrame(raf);document.querySelectorAll(".pbtn").forEach(x=>x.textContent="▶");document.querySelectorAll(".bar i").forEach(x=>x.style.width="0");}
+function play(i){if(curP&&curP.i===i){stop();return;}stop();AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+ const tk=STATE.takes[i],full=STATE.unlocked,off=full?0:STATE.prev.start,len=full?tk.buf.duration:STATE.prev.len;
+ const src=AC.createBufferSource();src.buffer=tk.buf;const g=AC.createGain();src.connect(g);g.connect(AC.destination);const now=AC.currentTime;
+ if(!full){g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(1,now+1.5);g.gain.setValueAtTime(1,now+len-3);g.gain.linearRampToValueAtTime(0,now+len);}
+ src.start(now,off,len);curP={i,src,t0:now-off,off,len,startAt:now};src.onended=()=>{if(curP&&curP.src===src)stop();};
+ document.querySelector(`.take[data-i="${i}"] .pbtn`).textContent="❚❚";loop();}
+function loop(){if(!curP)return;const t=AC.currentTime-curP.t0;const frac=(AC.currentTime-curP.startAt)/curP.len;
+ const bar=document.querySelector(`.take[data-i="${curP.i}"] .bar i`);if(bar)bar.style.width=Math.min(100,frac*100)+"%";
+ document.querySelectorAll(".w").forEach(w=>w.classList.toggle("sung",t>=+w.dataset.t));
+ document.querySelectorAll(".ln[data-s]").forEach(l=>{const on=t>=+l.dataset.s-.4&&t<=+l.dataset.e+.4;if(on&&!l.classList.contains("on"))l.scrollIntoView({block:"nearest",behavior:"smooth"});l.classList.toggle("on",on);});
+ raf=requestAnimationFrame(loop);}
+const fmt=n=>n.toLocaleString("vi-VN")+"đ";
+function totalPrice(){return 149000+[...document.querySelectorAll(".upsell input:checked")].reduce((a,x)=>a+ +x.value,0);}
+document.querySelectorAll(".upsell input").forEach(x=>x.onchange=()=>$("payTotal").textContent=fmt(totalPrice()));
+function render(){const S=STATE;go("result");$("songTitle").textContent=S.L.title;$("songFor").textContent=`Dành tặng ${S.b.name}`+(S.b.sender?` · từ ${S.b.sender}`:"");
+ $("resBadge").textContent=S.unlocked?"✓ Bản đầy đủ đã mở khoá":"🎁 Bản nghe thử miễn phí · 40 giây";
+ $("resSub").textContent=S.unlocked?"Cảm ơn bạn! Đây là bài hát trọn vẹn.":"Nghe thử 2 bản và chọn bản bạn thích nhất.";
+ $("takes").innerHTML=S.takes.map((t,i)=>`<div class="take ${i===S.chosen?"sel":""}" data-i="${i}"><div class="row"><button class="pbtn">▶</button>
+  <div><b>Bản ${i+1}</b>${i===S.best?'<span class="tag">Gợi ý</span>':""}<br><small>${S.unlocked?"Trọn bài · "+Math.round(t.buf.duration)+" giây":"Nghe thử 40 giây"}</small></div></div><div class="bar"><i></i></div></div>`).join("");
+ document.querySelectorAll(".take").forEach(el=>{const i=+el.dataset.i;el.querySelector(".pbtn").onclick=e=>{e.stopPropagation();play(i);};
+  el.onclick=()=>{if(S.chosen!==i){S.chosen=i;document.querySelectorAll(".take").forEach(x=>x.classList.toggle("sel",+x.dataset.i===i));}};});
+ const cut=S.prev.start+S.prev.len;
+ $("lyrics").className="lyrics"+(S.unlocked?"":" locked");
+ $("lyrics").innerHTML=S.dir.plan.sections.filter(s=>s.lines.length).map(s=>`<div class="sec">${s.name}</div>`+s.lines.map(l=>`<div class="ln ${l.start>cut?"late":""}" data-s="${l.start}" data-e="${l.end}">`+l.words.map(w=>`<span class="w" data-t="${w.start}">${w.w} </span>`).join("")+"</div>").join("")).join("");
+ $("paywall").style.display=S.unlocked?"none":"block";$("doneCard").style.display=S.unlocked?"block":"none";
+ if(S.unlocked)$("dl").innerHTML=S.takes.map((t,i)=>`<a class="btn ${i===S.chosen?"primary":"outline"}" download="${S.L.title} - ban ${i+1}.wav" href="${wav(t.buf)}">⬇ Tải bản ${i+1}</a>`).join("");
+ const r=S.rev;$("review").innerHTML=`<span>Điểm lời ${r.score}/100</span><span>Hiệp vần ${Math.round(r.rhyme*100)}% cặp câu</span><span>${Math.round(r.flat*100)}% câu kết thanh bằng</span><span>Lời: ${S.L.source}</span><span>Nhạc: ${S.takes[0].src}</span>`+r.notes.map(n=>`<span>Gợi ý: ${n}</span>`).join("");
+ $("tags").textContent="STYLE: "+S.dir.style+"\n\n"+S.dir.tagged;}
+$("payBtn").onclick=()=>{if(!STATE)return;stop();$("payBtn").textContent="Đang xác nhận thanh toán…";
+ setTimeout(()=>{STATE.unlocked=true;STATE.paid=totalPrice();$("payBtn").innerHTML=`Thanh toán <span id="payTotal">${fmt(totalPrice())}</span> (giả lập)`;render();},900);};
+
+/* ===================================================================== ĐIỀU PHỐI */
+async function runPipeline(){stop();TRACE=[];$("err").textContent="";$("retry").style.display="none";$("waitName").textContent=$("f_name").value.trim();go("wait");draw();
+ try{const b=briefAgent();await tick();const{L,rev}=await criticLoop(b);const dir=directorAgent(b,L);await tick();let takes,best;
+  for(let a=0;a<2;a++){takes=await producerAgent(b,L,dir);try{best=qcAgent(takes);break;}catch(e){if(a)throw e;}}
+  const prev=previewAgent(dir);await tick();STATE={b,L,rev,dir,takes,best,chosen:best,prev,unlocked:false};render();}
+ catch(e){$("err").textContent="Chưa tạo được bài hát: "+e.message;$("retry").style.display="block";$("waitSub").textContent="";}}
+go(1);
+</script>
+</body>
+</html>

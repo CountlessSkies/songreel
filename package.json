@@ -1,0 +1,37 @@
+{
+  "name": "songreel-poc",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:worker": "wrangler dev",
+    "build": "vite build",
+    "deploy": "vite build && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "astryx": "node node_modules/@astryxdesign/cli/clients/cli/bin/astryx.mjs"
+  },
+  "dependencies": {
+    "@astryxdesign/core": "^0.7.16",
+    "@astryxdesign/theme-butter": "^0.7.16",
+    "@astryxdesign/theme-chocolate": "^0.7.16",
+    "@astryxdesign/theme-gothic": "^0.7.16",
+    "@astryxdesign/theme-matcha": "^0.7.16",
+    "@astryxdesign/theme-neutral": "^0.7.16",
+    "@astryxdesign/theme-stone": "^0.7.16",
+    "@astryxdesign/theme-y2k": "^0.7.16",
+    "@stylexjs/stylex": "^0.19.2",
+    "hono": "^4.13.19",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@astryxdesign/cli": "^0.7.16",
+    "@cloudflare/workers-types": "^5.20261117.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "wrangler": "^4.163.0"
+  }
+}

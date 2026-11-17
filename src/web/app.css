@@ -1,0 +1,124 @@
+html, body, #root { height: 100%; }
+
+/* Font cac theme thieu dau tieng Viet: ep ve Be Vietnam Pro cho moi theme */
+[data-astryx-theme] {
+  --font-family-body: 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-family-heading: 'Be Vietnam Pro', system-ui, sans-serif;
+}
+
+/* ── Chip lua chon ─────────────────────────────────────────── */
+.chips > div,
+.chips [role='group'],
+.chips [role='radiogroup'] { flex-wrap: wrap; gap: 8px; }
+
+.chips button {
+  border: 1.5px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+  border-radius: var(--radius-full);
+  background: var(--color-background-card);
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.chips button:hover { transform: translateY(-1px); border-color: var(--color-accent); }
+.chips button[aria-pressed='true'] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+  transform: scale(1.04);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* ── Hero ─────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-container);
+  padding: 20px 24px;
+  background:
+    radial-gradient(circle at 12% 20%, var(--color-background-yellow) 0, transparent 55%),
+    radial-gradient(circle at 85% 30%, var(--color-background-pink) 0, transparent 55%),
+    radial-gradient(circle at 60% 110%, var(--color-background-blue) 0, transparent 60%),
+    var(--color-background-surface);
+}
+.hero-logo {
+  font-family: 'Pacifico', cursive;
+  font-size: 30px;
+  line-height: 1.2;
+  color: var(--color-text-accent);
+}
+.hero-sub { margin-top: 4px; font-weight: 600; color: var(--color-text-primary); }
+.hero-notes {
+  position: absolute;
+  right: 18px;
+  top: 10px;
+  font-size: 26px;
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+}
+.hero-notes span { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
+.hero-notes span:nth-child(2) { animation-delay: 0.4s; }
+.hero-notes span:nth-child(3) { animation-delay: 0.8s; }
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-8px) rotate(6deg); }
+}
+
+.step-emoji { font-size: 1.1em; margin-right: 6px; }
+
+/* ── Man cho: dia than quay ───────────────────────────────── */
+.vinyl-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
+.vinyl {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--color-accent) 0 18%, #111 19% 21%, transparent 22%),
+    repeating-radial-gradient(circle, #1b1b1b 0 3px, #2a2a2a 3px 5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  animation: spin 2.2s linear infinite;
+  position: relative;
+}
+.vinyl::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 40%);
+}
+.vinyl.is-stopped { animation-play-state: paused; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Ket qua ──────────────────────────────────────────────── */
+.lyrics-line { margin: 0; line-height: 1.7; }
+.lyrics-chorus { font-weight: 700; color: var(--color-text-accent); }
+.lyrics-locked { filter: blur(5px); user-select: none; }
+
+.cover {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+.cover.is-playing { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 10px transparent; }
+}
+
+.price { font-weight: 800; font-size: 28px; color: var(--color-text-accent); }
+
+/* Chon theme khi xem mockup */
+.theme-switcher {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 50;
+  width: 210px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-element);
+  background: var(--color-background-card);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-notes span, .vinyl, .cover.is-playing { animation: none; }
+}
