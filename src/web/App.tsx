@@ -1,9 +1,14 @@
 import {useEffect, useState} from 'react';
 import {EMPTY_ANSWERS, type Answers, type OrderView} from '../shared/catalog';
-import {createOrder, getOrder} from './api';
+import {createOrder, getOrder, MOCK} from './api';
+import {MvStudio} from './MvStudio';
+import {createMv, type MvRequest} from './mvApi';
 import {Result} from './Result';
 import {Waiting} from './Waiting';
 import {Wizard} from './Wizard';
+
+/** Giu ?mock=1 khi doi URL de tai lai trang van o che do gia lap. */
+const qs = (s: string) => (MOCK ? `?mock=1&${s}` : `?${s}`);
 
 const POLL_MS = 2000;
 
@@ -13,6 +18,12 @@ export function App() {
   const [order, setOrder] = useState<OrderView | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [passcode, setPasscode] = useState('');
+  const [mv, setMv] = useState<{id: string; takeIdx: number} | null>(() => {
+    const id = new URLSearchParams(location.search).get('mv');
+    return id ? {id, takeIdx: 0} : null;
+  });
+  const [isMvStarting, setIsMvStarting] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -33,13 +44,33 @@ export function App() {
     };
   }, [orderId]);
 
-  const submit = async (a: Answers, passcode: string) => {
+  const makeMv = async (req: MvRequest) => {
+    if (!order) return;
+    setIsMvStarting(true);
+    try {
+      const {id} = await createMv(order, req, passcode);
+      history.replaceState(null, '', qs(`order=${order.id}&mv=${id}`));
+      setMv({id, takeIdx: req.takeIdx});
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsMvStarting(false);
+    }
+  };
+
+  const closeMv = () => {
+    if (order) history.replaceState(null, '', qs(`order=${order.id}`));
+    setMv(null);
+  };
+
+  const submit = async (a: Answers, code: string) => {
+    setPasscode(code);
     setAnswers(a);
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      const {id} = await createOrder(a, passcode);
-      history.replaceState(null, '', `?order=${id}`);
+      const {id} = await createOrder(a, code);
+      history.replaceState(null, '', qs(`order=${id}`));
       setOrder(null);
       setOrderId(id);
     } catch (e) {
@@ -50,7 +81,7 @@ export function App() {
   };
 
   const reset = () => {
-    history.replaceState(null, '', location.pathname);
+    history.replaceState(null, '', MOCK ? '?mock=1' : location.pathname);
     setOrderId(null);
     setOrder(null);
   };
@@ -58,6 +89,7 @@ export function App() {
   if (!orderId) {
     return <Wizard initial={answers} onSubmit={submit} isSubmitting={isSubmitting} submitError={submitError} />;
   }
-  if (order?.status === 'ready') return <Result order={order} onNew={reset} />;
+  if (order?.status === 'ready' && mv) return <MvStudio order={order} mvId={mv.id} takeIdx={mv.takeIdx} onBack={closeMv} />;
+  if (order?.status === 'ready') return <Result order={order} onNew={reset} onMakeMv={makeMv} isMvStarting={isMvStarting} />;
   return <Waiting order={order} onRetry={reset} />;
 }

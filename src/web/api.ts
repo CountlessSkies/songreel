@@ -1,4 +1,4 @@
-import type {AgentKey, Answers, OrderView} from '../shared/catalog';
+import {EMPTY_ANSWERS, type AgentKey, type Answers, type OrderView} from '../shared/catalog';
 
 // ?mock=1: gia lap don hang (khong goi AI, khong ton tien), dung de demo giao dien.
 export const MOCK = new URLSearchParams(location.search).has('mock');
@@ -37,8 +37,9 @@ export async function getOrder(id: string): Promise<OrderView> {
 }
 
 function mockView(id: string): OrderView {
-  const o = mockOrders.get(id);
-  if (!o) throw new Error('Không tìm thấy đơn');
+  // Link ?mock=1&order=<bat ky> mo thang don da xong (tien demo)
+  if (!mockOrders.has(id)) mockOrders.set(id, {answers: {...EMPTY_ANSWERS, name: 'Lan'}, start: 0});
+  const o = mockOrders.get(id)!;
   let t = Date.now() - o.start;
   let stage: AgentKey = 'qc';
   let done = true;

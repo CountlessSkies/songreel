@@ -1,4 +1,9 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
+import {FileInput} from '@astryxdesign/core/FileInput';
+import {RadioList, RadioListItem} from '@astryxdesign/core/RadioList';
+import {estimateCostUsd, MV_MODES, planScenes, type MvMode, type MvRatio} from '../shared/mv';
+import type {MvRequest} from './mvApi';
 import {Badge} from '@astryxdesign/core/Badge';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Button} from '@astryxdesign/core/Button';
@@ -18,7 +23,6 @@ const PREVIEW_SEC = 40;
 const FADE_SEC = 2;
 const BASE_PRICE = 149_000;
 const ADDONS = [
-  {id: 'video', label: 'Video lời bài hát', price: 99_000, description: 'Video dọc 9:16 chạy lời theo nhạc, đăng story được.'},
   {id: 'acoustic', label: 'Bản acoustic', price: 49_000, description: 'Thêm một bản mộc chỉ guitar và giọng hát.'},
 ];
 
@@ -28,7 +32,21 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
 /** Diem bat dau nghe thu. Chua co moc dieu khuc tu Suno nen lay khoang 1/4 bai. */
 const previewStart = (dur: number) => Math.max(0, Math.min(dur * 0.25, dur - PREVIEW_SEC));
 
-export function Result({order, onNew}: {order: OrderView; onNew: () => void}) {
+export function Result({
+  order,
+  onNew,
+  onMakeMv,
+  isMvStarting,
+}: {
+  order: OrderView;
+  onNew: () => void;
+  onMakeMv: (req: MvRequest) => void;
+  isMvStarting: boolean;
+}) {
+  const [mvMode, setMvMode] = useState<MvMode>('hybrid');
+  const [mvRatio, setMvRatio] = useState<MvRatio>('9:16');
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [hasConsent, setHasConsent] = useState(false);
   const isNarrow = useMediaQuery('(max-width: 800px)');
   const [takeIdx, setTakeIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,6 +57,10 @@ export function Result({order, onNew}: {order: OrderView; onNew: () => void}) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const take = order.takes[takeIdx];
+  const mvPlan = useMemo(
+    () => planScenes(order.lyrics ?? [], take.durationSec ?? 180, mvMode),
+    [order.lyrics, take.durationSec, mvMode],
+  );
   const total = BASE_PRICE + ADDONS.filter(x => addons.includes(x.id)).reduce((s, x) => s + x.price, 0);
 
   // Doi ban thi dung phat va tua ve dau doan nghe thu
@@ -211,6 +233,61 @@ export function Result({order, onNew}: {order: OrderView; onNew: () => void}) {
     </Card>
   );
 
+  const mvCard = (
+    <Card padding={5} variant="blue">
+      <VStack gap={4}>
+        <VStack gap={1}>
+          <Heading level={3}>🎬 Làm MV cho bài hát</Heading>
+          <Text type="supporting" color="secondary">
+            AI vẽ cảnh theo lời bài, quay thành clip và chạy chữ karaoke. Dùng {`"Bản ${takeIdx + 1}"`} đang chọn.
+          </Text>
+        </VStack>
+        <RadioList label="Kiểu MV" value={mvMode} onChange={v => setMvMode(v as MvMode)}>
+          {(Object.keys(MV_MODES) as MvMode[]).map(k => (
+            <RadioListItem key={k} value={k} label={`${MV_MODES[k].label} +${vnd(MV_MODES[k].price)}`} description={MV_MODES[k].description} />
+          ))}
+        </RadioList>
+        <div className="chips">
+          <ToggleButtonGroup label="Khổ video" type="single" value={mvRatio} onChange={v => v && setMvRatio(v as MvRatio)}>
+            <ToggleButton value="9:16" label="📱 Dọc 9:16" />
+            <ToggleButton value="16:9" label="🖥️ Ngang 16:9" />
+          </ToggleButtonGroup>
+        </div>
+        <FileInput
+          label="Ảnh người nhận"
+          description="Tối đa 3 ảnh rõ mặt, mỗi ảnh dưới 10MB. AI dùng để vẽ nhân vật giống người thật."
+          isOptional
+          isMultiple
+          mode="dropzone"
+          accept="image/*"
+          maxFiles={3}
+          maxSize={10 * 1024 * 1024}
+          value={photos}
+          onChange={f => setPhotos(Array.isArray(f) ? f : f ? [f] : [])}
+        />
+        {photos.length > 0 && (
+          <CheckboxInput
+            label="Tôi có quyền dùng các ảnh này và đồng ý cho AI xử lý để làm MV."
+            value={hasConsent}
+            onChange={setHasConsent}
+          />
+        )}
+        <Text type="supporting" color="secondary">
+          🧪 Bản chạy thử: {mvPlan.length} cảnh, {mvPlan.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
+          {estimateCostUsd(mvPlan).toFixed(2)}
+        </Text>
+        <Button
+          label="🎬 Tạo MV"
+          variant="primary"
+          width="100%"
+          isDisabled={photos.length > 0 && !hasConsent}
+          isLoading={isMvStarting}
+          onClick={() => onMakeMv({mode: mvMode, ratio: mvRatio, takeIdx, photos})}
+        />
+      </VStack>
+    </Card>
+  );
+
   return (
     <Layout
       height="fill"
@@ -232,6 +309,7 @@ export function Result({order, onNew}: {order: OrderView; onNew: () => void}) {
               <VStack gap={5}>
                 {player}
                 {paywall}
+                {mvCard}
               </VStack>
               {lyrics}
             </Grid>

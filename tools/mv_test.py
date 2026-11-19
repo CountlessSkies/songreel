@@ -34,6 +34,12 @@ MOTION_PROMPT = (
     "Gentle, calm, nostalgic. No text."
 )
 
+REF_PROMPT = (
+    "Same woman as in the reference image (keep her face, hair, age and cream ao ba ba exactly). New scene: "
+    "vertical 9:16 cinematic film still, she stands in a small Mekong market at early morning choosing fresh "
+    "vegetables, soft mist, warm side light, 35mm, shallow depth of field, nostalgic warm grade. No text."
+)
+
 
 def load_key(env_path: pathlib.Path) -> str:
     for line in env_path.read_text(encoding="utf-8").splitlines():
@@ -77,12 +83,14 @@ def main() -> None:
     ap.add_argument("--duration", default="5")
     ap.add_argument("--real-person", action="store_true")
     ap.add_argument("--res", default="720p")
+    ap.add_argument("--image-model", default="rhart-image-n-nb21")
+    ap.add_argument("--ref-scene", action="store_true", help="tao them canh 2 tu anh canh 1 (giu nhan vat)")
     args = ap.parse_args()
     key = load_key(pathlib.Path(args.env))
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
 
-    img = run("image", "/rhart-image-n-g31-flash/text-to-image",
+    img = run("image", f"/{args.image_model}/text-to-image",
               {"prompt": IMAGE_PROMPT, "resolution": "1k", "aspectRatio": "9:16"}, key)
     results = img.get("response", {}).get("results") or []
     if not results:
@@ -91,6 +99,17 @@ def main() -> None:
     urllib.request.urlretrieve(img_url, OUT / f"{stamp}-frame.{results[0].get('outputType') or 'png'}")
 
     report = {"image": img}
+    if args.ref_scene:
+        # Canh 2 dung anh canh 1 lam reference de giu nhan vat
+        ref = run("ref-image", f"/{args.image_model}/image-to-image",
+                  {"imageUrls": [img_url], "prompt": REF_PROMPT, "resolution": "1k", "aspectRatio": "9:16"}, key)
+        report["ref"] = ref
+        for item in (ref.get("response") or {}).get("results") or []:
+            if item.get("url"):
+                urllib.request.urlretrieve(item["url"], OUT / f"{stamp}-frame2.{item.get('outputType') or 'png'}")
+    if not args.models:
+        (OUT / f"{stamp}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        return
     with cf.ThreadPoolExecutor() as ex:
         futs = {}
         for m in args.models.split(","):
