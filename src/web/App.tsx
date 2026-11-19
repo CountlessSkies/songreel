@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {EMPTY_ANSWERS, type Answers, type OrderView} from '../shared/catalog';
 import {createOrder, getOrder, MOCK} from './api';
+import {Home, type StartPrefill} from './Home';
 import {MvStudio} from './MvStudio';
 import {createMv, type MvRequest} from './mvApi';
 import {Result} from './Result';
@@ -40,6 +41,16 @@ export function App() {
     return id ? {id, takeIdx: 0} : null;
   });
   const [isMvStarting, setIsMvStarting] = useState(false);
+  // Trang chu hien truoc; ?start=1 (hoac dang co don) thi vao thang bang hoi
+  const [isStarted, setIsStarted] = useState(() => new URLSearchParams(location.search).has('start'));
+  useEffect(() => {
+    const onPop = () => setIsStarted(new URLSearchParams(location.search).has('start'));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  useEffect(() => {
+    document.body.dataset.page = !orderId && !isStarted ? 'home' : 'app';
+  }, [orderId, isStarted]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -96,14 +107,30 @@ export function App() {
     }
   };
 
+  const start = (p?: StartPrefill) => {
+    setAnswers(a => ({...a, ...(p?.occ ? {occ: p.occ} : {}), ...(p?.rel ? {rel: p.rel} : {})}));
+    setIsStarted(true);
+    history.pushState(null, '', qs('start=1'));
+    window.scrollTo({top: 0});
+  };
+
   const reset = () => {
-    history.replaceState(null, '', MOCK ? '?mock=1' : location.pathname);
+    history.replaceState(null, '', qs('start=1'));
     setOrderId(null);
     setOrder(null);
   };
 
+  if (!orderId && !isStarted) return <Home onStart={start} />;
   if (!orderId) {
-    return <Wizard initial={answers} onSubmit={submit} isSubmitting={isSubmitting} submitError={submitError} />;
+    return (
+      <Wizard
+        key={`${answers.occ}|${answers.rel}`}
+        initial={answers}
+        onSubmit={submit}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+      />
+    );
   }
   if (order?.status === 'ready' && mv) return <MvStudio order={order} mvId={mv.id} takeIdx={mv.takeIdx} onBack={closeMv} />;
   if (order?.status === 'ready') return <Result order={order} onNew={reset} onMakeMv={makeMv} isMvStarting={isMvStarting} passcode={passcode} onPasscode={setPasscode} />;
