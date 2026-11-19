@@ -1,6 +1,9 @@
 # SolSongs PoC: Handoff (repo/worker vẫn tên songreel)
 
-Bài hát tặng riêng: khách điền bảng hỏi → AI viết lời tiếng Việt → Suno hát 2 bản → nghe thử 40s → thanh toán (giả lập) mở bản đầy đủ.
+Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI viết lời tiếng Việt → Suno hát 2 bản → nghe thử 40s → thanh toán (giả lập) mở bản đầy đủ → tuỳ chọn dựng MV.
+
+- **Trang chủ:** `src/web/Home.tsx` + `home.css`, lấy theo `ref/solsongs-v1.3.html`. `?start=1` vào thẳng bảng hỏi.
+- **Deploy gần nhất:** 2026-11-19, version `3d5585aa`, đã chạy migration `0002_mvs.sql` trên D1 remote.
 
 - **URL:** https://songreel-poc.quann111.workers.dev
 - **Benchmark viết lời:** https://songreel-poc.quann111.workers.dev/bench/
