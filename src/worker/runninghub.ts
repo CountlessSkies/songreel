@@ -53,6 +53,33 @@ export async function submitSunoCustom(apiKey: string, s: SunoInput): Promise<st
   return res.taskId;
 }
 
+/** Nano Banana 2.1 official ($0.03/anh). Co anh reference thi goi image-to-image (toi da 14 anh). */
+export async function submitImage(apiKey: string, o: {prompt: string; refs?: string[]; aspectRatio: string}): Promise<string> {
+  const base = '/rhart-image-n-nb21-official';
+  const res = o.refs?.length
+    ? await rh(apiKey, `${base}/image-to-image`, {imageUrls: o.refs, prompt: o.prompt, resolution: '1k', aspectRatio: o.aspectRatio})
+    : await rh(apiKey, `${base}/text-to-image`, {prompt: o.prompt, resolution: '1k', aspectRatio: o.aspectRatio});
+  if (!res.taskId) throw new Error(res.errorMessage || 'RunningHub không trả taskId');
+  return res.taskId;
+}
+
+/** Seedance 2.0 mini image-to-video, 720p, tinh tien theo giay ($0.1/s). Co nguoi that thi bat buoc realPersonMode. */
+export async function submitClip(apiKey: string, o: {image: string; prompt: string; seconds: number; ratio: string}): Promise<string> {
+  const res = await rh(apiKey, '/bytedance/seedance-2.0-global-mini/image-to-video', {
+    prompt: o.prompt,
+    resolution: '720p',
+    duration: String(Math.min(15, Math.max(4, Math.round(o.seconds)))),
+    firstFrameUrl: o.image,
+    generateAudio: false,
+    ratio: o.ratio,
+    realPersonMode: true,
+    returnLastFrame: false,
+    seed: -1,
+  });
+  if (!res.taskId) throw new Error(res.errorMessage || 'RunningHub không trả taskId');
+  return res.taskId;
+}
+
 export const queryTask = (apiKey: string, taskId: string) => rh(apiKey, '/query', {taskId});
 
 export type LlmUsage = {input: number; output: number};

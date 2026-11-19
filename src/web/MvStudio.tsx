@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Button} from '@astryxdesign/core/Button';
 import {Card} from '@astryxdesign/core/Card';
@@ -12,9 +12,9 @@ import {useMediaQuery} from '@astryxdesign/core/hooks';
 import type {OrderView} from '../shared/catalog';
 import {MV_MODES, type MvRatio, type MvScene, type MvView} from '../shared/mv';
 import {getMv} from './mvApi';
+import {createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
 
-const POLL_MS = 1500;
-const TITLE_SEC = 3;
+const POLL_MS = 3000;
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -92,7 +92,7 @@ export function MvStudio({order, mvId, takeIdx, onBack}: {order: OrderView; mvId
             )}
 
             <Grid columns={isNarrow ? 1 : 2} gap={5}>
-              <Preview order={order} mv={mv} takeIdx={takeIdx} />
+              <Preview order={order} mv={mv} takeIdx={mv?.take ?? takeIdx} />
               <Card padding={4}>
                 <VStack gap={3}>
                   <Heading level={3}>🎞️ Kịch bản cảnh</Heading>
@@ -129,106 +129,187 @@ export function MvStudio({order, mvId, takeIdx, onBack}: {order: OrderView; mvId
   );
 }
 
-/** Xem truoc MV ngay tren trinh duyet: anh/clip theo moc thoi gian, chu karaoke, the tieu de dau bai. */
+/** Xem truoc va xuat MV ngay tren trinh duyet. Canvas ve bang mvRender nen ban xuat giong het ban xem. */
 function Preview({order, mv, takeIdx}: {order: OrderView; mv: MvView | null; takeIdx: number}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const media = useRef<Media>(createMedia());
+  const graph = useRef<{ctx: AudioContext; dest: MediaStreamAudioDestinationNode} | null>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
   const [now, setNow] = useState(0);
+  const [dur, setDur] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [exportState, setExportState] = useState<'idle' | 'loading' | 'recording'>('idle');
+  const [download, setDownload] = useState<{url: string; name: string} | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const take = order.takes[takeIdx];
   const ratio: MvRatio = mv?.ratio ?? '9:16';
   const scenes = mv?.scenes ?? [];
   const ready = mv?.status === 'ready';
+  const [W, H] = ratio === '9:16' ? [720, 1280] : [1280, 720];
 
+  // Ve lien tuc theo thoi gian nhac
+  const live = useRef({scenes, isPlaying, recipient: order.recipient, title: order.title ?? ''});
+  live.current = {scenes, isPlaying, recipient: order.recipient, title: order.title ?? ''};
+  useEffect(() => {
+    syncMedia(media.current, scenes);
+  }, [scenes]);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const el = audioRef.current;
-      if (el) setNow(el.currentTime);
+      const c = canvasRef.current?.getContext('2d');
+      const t = audioRef.current?.currentTime ?? 0;
+      if (c) drawFrame(c, media.current, {...live.current, t});
+      setNow(t);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const cur = useMemo(() => scenes.find(s => now >= s.start && now < s.end) ?? scenes[0], [scenes, now]);
-  const line = useMemo(() => {
-    if (!cur || !cur.lines.length) return null;
-    const per = (cur.end - cur.start) / cur.lines.length;
-    return cur.lines[Math.min(cur.lines.length - 1, Math.floor((now - cur.start) / per))];
-  }, [cur, now]);
+  /** Am thanh di qua AudioContext de vua nghe vua ghi duoc vao video. Chi tao 1 lan cho moi the audio. */
+  const ensureGraph = () => {
+    if (graph.current || !audioRef.current) return graph.current;
+    const ctx = new AudioContext();
+    const src = ctx.createMediaElementSource(audioRef.current);
+    const dest = ctx.createMediaStreamDestination();
+    src.connect(ctx.destination);
+    src.connect(dest);
+    graph.current = {ctx, dest};
+    return graph.current;
+  };
 
-  const toggle = () => {
+  const toggle = async () => {
     const el = audioRef.current;
     if (!el) return;
-    if (isPlaying) el.pause();
-    else void el.play();
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      el.pause();
+      setIsPlaying(false);
+      return;
+    }
+    await ensureGraph()?.ctx.resume();
+    await el.play();
+    setIsPlaying(true);
   };
+
+  const exportVideo = async () => {
+    const el = audioRef.current;
+    const canvas = canvasRef.current;
+    if (!el || !canvas) return;
+    setExportError(null);
+    const mime = pickMime();
+    if (!mime) {
+      setExportError('Trình duyệt này không ghi được video. Thử Chrome hoặc Safari bản mới.');
+      return;
+    }
+    // Cho tai het anh va clip
+    setExportState('loading');
+    for (let k = 0; k < 120 && !mediaReady(media.current, scenes); k++) await new Promise(r => setTimeout(r, 250));
+    const g = ensureGraph()!;
+    await g.ctx.resume();
+    el.pause();
+    el.currentTime = 0;
+    const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...g.dest.stream.getAudioTracks()]);
+    const rec = new MediaRecorder(stream, {mimeType: mime, videoBitsPerSecond: 6_000_000});
+    const chunks: Blob[] = [];
+    rec.ondataavailable = e => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    rec.onstop = () => {
+      const blob = new Blob(chunks, {type: mime.split(';')[0]});
+      const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+      setDownload(prev => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return {url: URL.createObjectURL(blob), name: `${(order.title ?? 'solsongs').replace(/[\\/:*?"<>|]/g, '')} - MV.${ext}`};
+      });
+      setExportState('idle');
+      setIsPlaying(false);
+    };
+    el.onended = () => {
+      if (rec.state === 'recording') rec.stop();
+      setIsPlaying(false);
+    };
+    recRef.current = rec;
+    rec.start(1000);
+    setExportState('recording');
+    setIsPlaying(true);
+    await el.play();
+  };
+
+  const cancelExport = () => {
+    const rec = recRef.current;
+    if (rec && rec.state === 'recording') {
+      rec.onstop = () => setExportState('idle');
+      rec.stop();
+    }
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  };
+
+  const total = dur || take.durationSec || 0;
+  const isBusy = exportState !== 'idle';
 
   return (
     <Card padding={4}>
       <VStack gap={3}>
         <Heading level={3}>📱 Xem trước</Heading>
-        <div className={ratio === '9:16' ? 'mv-frame is-portrait' : 'mv-frame is-landscape'}>
-          {scenes.map(s => {
-            const on = s === cur;
-            const clipOn = on && !!s.clipUrl && s.status === 'done' && now - s.start < s.clipSec;
-            if (s.clipUrl && s.status === 'done' && s.clipSec >= s.end - s.start - 0.5)
-              return <SceneClip key={s.idx} src={s.clipUrl} isOn={on} isPlaying={isPlaying} />;
-            if (s.clipUrl && s.status === 'done')
-              return (
-                <span key={s.idx}>
-                  <SceneClip src={s.clipUrl} isOn={clipOn} isPlaying={isPlaying} />
-                  {s.imageUrl && <img className={on && !clipOn ? 'mv-layer is-on kenburns' : 'mv-layer'} src={s.imageUrl} alt="" />}
-                </span>
-              );
-            if (s.imageUrl)
-              return <img key={s.idx} className={on ? 'mv-layer is-on kenburns' : 'mv-layer'} src={s.imageUrl} alt="" />;
-            return null;
-          })}
-          {!cur?.imageUrl && <div className="mv-layer is-on mv-wait">Đang vẽ cảnh…</div>}
-          {now < TITLE_SEC && (
-            <div className="mv-title">
-              <div className="mv-title-small">Dành tặng</div>
-              <div className="mv-title-name">{order.recipient}</div>
-              <div className="mv-title-song">{order.title}</div>
-            </div>
-          )}
-          {line && <div className="mv-sub" key={line}>{line}</div>}
-        </div>
-        <audio ref={audioRef} src={take.audioUrl} preload="metadata" onEnded={() => setIsPlaying(false)} />
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          className={ratio === '9:16' ? 'mv-frame is-portrait' : 'mv-frame is-landscape'}
+          aria-label="Khung xem trước MV"
+        />
+        <audio
+          ref={audioRef}
+          src={take.audioUrl}
+          preload="auto"
+          onLoadedMetadata={e => setDur(e.currentTarget.duration)}
+          onEnded={() => setIsPlaying(false)}
+        />
         <HStack gap={3} vAlign="center">
-          <Button label={isPlaying ? '⏸ Dừng' : '▶ Xem MV'} variant="primary" onClick={toggle} />
+          <Button label={isPlaying ? '⏸ Dừng' : '▶ Xem MV'} variant="primary" isDisabled={isBusy} onClick={() => void toggle()} />
           <StackItem size="fill">
-            <ProgressBar label="Thời gian" isLabelHidden value={now} max={take.durationSec ?? 1} />
+            <ProgressBar label="Thời gian" isLabelHidden value={now} max={total || 1} />
           </StackItem>
           <Text type="supporting" color="secondary">
-            {mmss(now)} / {mmss(take.durationSec ?? 0)}
+            {mmss(now)} / {mmss(total)}
           </Text>
         </HStack>
-        <Button
-          label="⬇ Xuất video MP4"
-          variant="secondary"
-          width="100%"
-          isDisabled={!ready}
-          onClick={() => alert('Mockup: xuất video ghép trên trình duyệt (canvas + MediaRecorder) sẽ làm sau khi duyệt giao diện.')}
-        />
+        {exportState === 'recording' ? (
+          <Button label={`⏹ Huỷ xuất (${mmss(now)} / ${mmss(total)})`} variant="secondary" width="100%" onClick={cancelExport} />
+        ) : (
+          <Button
+            label={exportState === 'loading' ? 'Đang tải cảnh…' : '⬇ Xuất video'}
+            variant="secondary"
+            width="100%"
+            isDisabled={!ready || isBusy}
+            isLoading={exportState === 'loading'}
+            onClick={() => void exportVideo()}
+          />
+        )}
+        {download && !isBusy && (
+          <Button
+            label={`💾 Lưu ${download.name}`}
+            variant="primary"
+            width="100%"
+            onClick={() => {
+              const a = document.createElement('a');
+              a.href = download.url;
+              a.download = download.name;
+              a.click();
+            }}
+          />
+        )}
+        {exportError && (
+          <Banner status="error" title="Không xuất được video" collapsible={false}>
+            <Text type="supporting">{exportError}</Text>
+          </Banner>
+        )}
         <Text type="supporting" color="secondary">
-          Video ghép ngay trên máy bạn, không cần chờ server.
+          Video ghép ngay trên máy bạn, chạy theo thời gian thật của bài (khoảng {mmss(total)}). Giữ tab mở đến khi xong.
         </Text>
       </VStack>
     </Card>
   );
-}
-
-function SceneClip({src, isOn, isPlaying}: {src: string; isOn: boolean; isPlaying: boolean}) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (isOn && isPlaying) void el.play().catch(() => {});
-    else el.pause();
-    if (!isOn) el.currentTime = 0;
-  }, [isOn, isPlaying]);
-  return <video ref={ref} className={isOn ? 'mv-layer is-on' : 'mv-layer'} src={src} muted loop playsInline preload="auto" />;
 }

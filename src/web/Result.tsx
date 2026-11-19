@@ -3,6 +3,8 @@ import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
 import {FileInput} from '@astryxdesign/core/FileInput';
 import {RadioList, RadioListItem} from '@astryxdesign/core/RadioList';
 import {estimateCostUsd, MV_MODES, planScenes, type MvMode, type MvRatio} from '../shared/mv';
+import {TextInput} from '@astryxdesign/core/TextInput';
+import {MOCK} from './api';
 import type {MvRequest} from './mvApi';
 import {Badge} from '@astryxdesign/core/Badge';
 import {Banner} from '@astryxdesign/core/Banner';
@@ -37,11 +39,15 @@ export function Result({
   onNew,
   onMakeMv,
   isMvStarting,
+  passcode,
+  onPasscode,
 }: {
   order: OrderView;
   onNew: () => void;
   onMakeMv: (req: MvRequest) => void;
   isMvStarting: boolean;
+  passcode: string;
+  onPasscode: (v: string) => void;
 }) {
   const [mvMode, setMvMode] = useState<MvMode>('hybrid');
   const [mvRatio, setMvRatio] = useState<MvRatio>('9:16');
@@ -57,9 +63,19 @@ export function Result({
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const take = order.takes[takeIdx];
+  // Suno khong tra do dai bai: doc tu file mp3
+  const [measured, setMeasured] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (measured[take.audioUrl]) return;
+    const a = new Audio();
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => setMeasured(m => ({...m, [take.audioUrl]: a.duration}));
+    a.src = take.audioUrl;
+  }, [take.audioUrl, measured]);
+  const durationSec = measured[take.audioUrl] ?? take.durationSec ?? null;
   const mvPlan = useMemo(
-    () => planScenes(order.lyrics ?? [], take.durationSec ?? 180, mvMode),
-    [order.lyrics, take.durationSec, mvMode],
+    () => planScenes(order.lyrics ?? [], durationSec ?? 180, mvMode),
+    [order.lyrics, durationSec, mvMode],
   );
   const total = BASE_PRICE + ADDONS.filter(x => addons.includes(x.id)).reduce((s, x) => s + x.price, 0);
 
@@ -274,15 +290,24 @@ export function Result({
         )}
         <Text type="supporting" color="secondary">
           🧪 Bản chạy thử: {mvPlan.length} cảnh, {mvPlan.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
-          {estimateCostUsd(mvPlan).toFixed(2)}
+          {estimateCostUsd(mvPlan).toFixed(2)} · dựng khoảng 5–10 phút
         </Text>
+        {!MOCK && (
+          <TextInput
+            label="Mã truy cập bản chạy thử"
+            type="password"
+            value={passcode}
+            onChange={onPasscode}
+            isRequired
+          />
+        )}
         <Button
           label="🎬 Tạo MV"
           variant="primary"
           width="100%"
-          isDisabled={photos.length > 0 && !hasConsent}
           isLoading={isMvStarting}
-          onClick={() => onMakeMv({mode: mvMode, ratio: mvRatio, takeIdx, photos})}
+          isDisabled={(photos.length > 0 && !hasConsent) || !durationSec || (!MOCK && !passcode.trim())}
+          onClick={() => durationSec && onMakeMv({mode: mvMode, ratio: mvRatio, takeIdx, durationSec, photos})}
         />
       </VStack>
     </Card>

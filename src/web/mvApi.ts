@@ -2,7 +2,19 @@ import type {OrderView} from '../shared/catalog';
 import {estimateCostUsd, planScenes, type MvMode, type MvRatio, type MvScene, type MvView} from '../shared/mv';
 import {MOCK} from './api';
 
-export type MvRequest = {mode: MvMode; ratio: MvRatio; takeIdx: number; photos: File[]};
+export type MvRequest = {mode: MvMode; ratio: MvRatio; takeIdx: number; durationSec: number; photos: File[]};
+
+/** Thu nho anh ve canh dai 1280px, JPEG, de gui len nhe va vua lam reference. */
+async function shrink(f: File): Promise<Blob> {
+  const bmp = await createImageBitmap(f);
+  const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k);
+  c.height = Math.round(bmp.height * k);
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close();
+  return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('Không đọc được ảnh'))), 'image/jpeg', 0.88));
+}
 
 const mockMvs = new Map<string, {order: OrderView; req: MvRequest; start: number}>();
 
@@ -17,7 +29,8 @@ export async function createMv(order: OrderView, req: MvRequest, passcode: strin
   fd.set('mode', req.mode);
   fd.set('ratio', req.ratio);
   fd.set('take', String(req.takeIdx));
-  req.photos.forEach(p => fd.append('photos', p));
+  fd.set('duration', String(req.durationSec));
+  for (const [i, p] of req.photos.entries()) fd.append('photos', await shrink(p), `photo${i}.jpg`);
   const r = await fetch('/api/mv', {method: 'POST', headers: {'X-Passcode': passcode}, body: fd});
   if (!r.ok) throw new Error(((await r.json().catch(() => null)) as {error?: string} | null)?.error ?? `Lỗi ${r.status}`);
   return r.json();
@@ -62,6 +75,7 @@ function mockMv(id: string): MvView {
     orderId: m.order.id,
     mode: m.req.mode,
     ratio: m.req.ratio,
+    take: m.req.takeIdx,
     status: scenes.every(s => s.status === 'done') ? 'ready' : 'running',
     scenes,
     costUsd: estimateCostUsd(plan),

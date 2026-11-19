@@ -11,6 +11,7 @@ import {Wizard} from './Wizard';
 const qs = (s: string) => (MOCK ? `?mock=1&${s}` : `?${s}`);
 
 const POLL_MS = 2000;
+const PASS_KEY = 'solsongs_passcode';
 
 export function App() {
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
@@ -18,7 +19,22 @@ export function App() {
   const [order, setOrder] = useState<OrderView | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [passcode, setPasscode] = useState('');
+  // Ma truy cap ban chay thu: nho trong trinh duyet de tao MV sau khi tai lai trang
+  const [passcode, setPasscodeState] = useState(() => {
+    try {
+      return localStorage.getItem(PASS_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const setPasscode = (v: string) => {
+    setPasscodeState(v);
+    try {
+      localStorage.setItem(PASS_KEY, v);
+    } catch {
+      /* trinh duyet chan luu */
+    }
+  };
   const [mv, setMv] = useState<{id: string; takeIdx: number} | null>(() => {
     const id = new URLSearchParams(location.search).get('mv');
     return id ? {id, takeIdx: 0} : null;
@@ -90,6 +106,6 @@ export function App() {
     return <Wizard initial={answers} onSubmit={submit} isSubmitting={isSubmitting} submitError={submitError} />;
   }
   if (order?.status === 'ready' && mv) return <MvStudio order={order} mvId={mv.id} takeIdx={mv.takeIdx} onBack={closeMv} />;
-  if (order?.status === 'ready') return <Result order={order} onNew={reset} onMakeMv={makeMv} isMvStarting={isMvStarting} />;
+  if (order?.status === 'ready') return <Result order={order} onNew={reset} onMakeMv={makeMv} isMvStarting={isMvStarting} passcode={passcode} onPasscode={setPasscode} />;
   return <Waiting order={order} onRetry={reset} />;
 }

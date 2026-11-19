@@ -50,6 +50,7 @@ export type MvView = {
   orderId: string;
   mode: MvMode;
   ratio: MvRatio;
+  take: number;
   status: 'running' | 'ready' | 'failed';
   scenes: MvScene[];
   costUsd: number;
