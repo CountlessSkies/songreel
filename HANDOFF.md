@@ -1,4 +1,4 @@
-# SongReel PoC: Handoff
+# SolSongs PoC: Handoff (repo/worker vẫn tên songreel)
 
 Bài hát tặng riêng: khách điền bảng hỏi → AI viết lời tiếng Việt → Suno hát 2 bản → nghe thử 40s → thanh toán (giả lập) mở bản đầy đủ.
 

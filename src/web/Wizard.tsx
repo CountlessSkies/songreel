@@ -143,7 +143,7 @@ export function Wizard({initial, onSubmit, isSubmitting, submitError}: {
           <VStack gap={isNarrow ? 3 : 5}>
             <div className="hero">
               <div className="hero-notes" aria-hidden="true"><span>🎵</span><span>🎶</span><span>💛</span></div>
-              <div className="hero-logo">SongReel</div>
+              <div className="hero-logo">SolSongs</div>
               <div className="hero-sub">Kể một câu chuyện, nhận về một bài hát của riêng người ấy</div>
             </div>
             <Stepper

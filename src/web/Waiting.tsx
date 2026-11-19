@@ -23,7 +23,7 @@ export function Waiting({order, onRetry}: {order: OrderView | null; onRetry: () 
         <LayoutContent>
           <VStack gap={5}>
             <div className="hero">
-              <div className="hero-logo">SongReel</div>
+              <div className="hero-logo">SolSongs</div>
               <div className="vinyl-wrap">
                 <div className={failed ? 'vinyl is-stopped' : 'vinyl'} aria-hidden="true" />
               </div>

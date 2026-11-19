@@ -300,7 +300,7 @@ export function Result({
               <StackItem size="fill">
                 <div className="hero">
                   <div className="hero-notes" aria-hidden="true"><span>🎉</span><span>🎵</span><span>🎁</span></div>
-                  <div className="hero-logo">SongReel</div>
+                  <div className="hero-logo">SolSongs</div>
                   <div className="hero-sub">Bài hát cho {order.recipient} đã sẵn sàng!</div>
                 </div>
               </StackItem>

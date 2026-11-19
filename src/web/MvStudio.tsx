@@ -62,7 +62,7 @@ export function MvStudio({order, mvId, takeIdx, onBack}: {order: OrderView; mvId
           <VStack gap={5}>
             <div className="hero">
               <div className="hero-notes" aria-hidden="true"><span>🎬</span><span>🎞️</span><span>✨</span></div>
-              <div className="hero-logo">SongReel</div>
+              <div className="hero-logo">SolSongs</div>
               <div className="hero-sub">
                 Xưởng MV · {order.title ?? 'Bài hát'} · tặng {order.recipient}
               </div>
