@@ -123,16 +123,33 @@ function drawScene(
   drawStill(alpha);
 }
 
+/** Cau dang hat trong canh. Co moc do (lineTimes) thi theo moc, khong thi chia deu canh. */
+function lineIndex(s: MvScene, t: number) {
+  if (s.lineTimes?.length === s.lines.length) {
+    let k = 0;
+    for (let i = 0; i < s.lineTimes.length; i++) if (t >= s.lineTimes[i][0]) k = i;
+    return k;
+  }
+  const per = (s.end - s.start) / s.lines.length;
+  return Math.min(s.lines.length - 1, Math.max(0, Math.floor((t - s.start) / per)));
+}
+
 function lineStart(s: MvScene, t: number) {
   if (!s.lines.length) return s.start;
-  const per = (s.end - s.start) / s.lines.length;
-  return s.start + Math.min(s.lines.length - 1, Math.floor((t - s.start) / per)) * per;
+  const k = lineIndex(s, t);
+  return s.lineTimes?.length === s.lines.length ? s.lineTimes[k][0] : s.start + k * ((s.end - s.start) / s.lines.length);
 }
 
 export function lineAt(s: MvScene, t: number) {
   if (!s.lines.length) return null;
-  const per = (s.end - s.start) / s.lines.length;
-  return s.lines[Math.min(s.lines.length - 1, Math.max(0, Math.floor((t - s.start) / per)))];
+  // Co moc do: chi hien chu trong luc hat (cong 1.2s cho de doc), khong hien khi nhac dao
+  if (s.lineTimes?.length === s.lines.length) {
+    const k = lineIndex(s, t);
+    const [a, b] = s.lineTimes[k];
+    if (t < a - 0.15 || t > b + 1.2) return null;
+    return s.lines[k];
+  }
+  return s.lines[lineIndex(s, t)];
 }
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {

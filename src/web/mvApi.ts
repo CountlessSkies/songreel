@@ -16,7 +16,19 @@ async function shrink(f: File): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob(b => (b ? res(b) : rej(new Error('Không đọc được ảnh'))), 'image/jpeg', 0.88));
 }
 
-const mockMvs = new Map<string, {order: OrderView; req: MvRequest; start: number}>();
+const mockMvs = new Map<string, {order: OrderView; req: MvRequest; start: number; approvedAt?: number}>();
+
+/** Duyet storyboard (MV ke chuyen): bat dau quay clip. */
+export async function approveMv(id: string, passcode: string): Promise<MvView> {
+  if (MOCK) {
+    const m = mockMvs.get(id);
+    if (m) m.approvedAt = Date.now();
+    return mockMv(id);
+  }
+  const r = await fetch(`/api/mv/${id}/approve`, {method: 'POST', headers: {'X-Passcode': passcode}});
+  if (!r.ok) throw new Error(((await r.json().catch(() => null)) as {error?: string} | null)?.error ?? `Lỗi ${r.status}`);
+  return r.json();
+}
 
 export async function createMv(order: OrderView, req: MvRequest, passcode: string): Promise<{id: string}> {
   if (MOCK) {
@@ -49,9 +61,49 @@ const CLIPS = ['/mock/mv/clip1.mp4', '/mock/mv/clip2.mp4'];
 const IMAGE_MS = 700;
 const CLIP_MS = 1600;
 
+/** Gia lap MV ke chuyen: ve khung dau/cuoi lan luot -> cho duyet -> quay clip. */
+function mockStory(id: string, m: {order: OrderView; req: MvRequest; start: number; approvedAt?: number}): MvView {
+  const dur = m.order.takes[m.req.takeIdx]?.durationSec ?? 180;
+  const plan = planScenes(m.order.lyrics ?? [], dur, 'story');
+  const t = Date.now() - m.start;
+  const framesAt = (i: number) => 1500 + (i + 1) * 400;
+  const allFramed = t >= framesAt(plan.length - 1);
+  const sinceApprove = m.approvedAt ? Date.now() - m.approvedAt : -1;
+  const scenes: MvScene[] = plan.map((p, i) => {
+    const framed = t >= framesAt(i);
+    const clipDone = sinceApprove >= (i + 1) * 500;
+    const status: MvScene['status'] = !framed ? (t >= framesAt(i) - 400 ? 'image' : 'pending') : sinceApprove < 0 ? 'framed' : clipDone ? 'done' : 'clip';
+    return {
+      ...p,
+      imageUrl: framed ? IMAGES[i % IMAGES.length] : null,
+      endImageUrl: framed ? IMAGES[(i + 2) % IMAGES.length] : null,
+      clipUrl: clipDone ? CLIPS[i % CLIPS.length] : null,
+      action: p.lines.length ? `Mẹ nhớ lại: ${p.lines[0].toLowerCase()}` : 'Cảnh mở: ngôi nhà ngói buổi sáng',
+      status,
+    };
+  });
+  const clipCostUsd = plan.reduce((s, p) => s + p.clipSec * 0.1, 0);
+  return {
+    id,
+    orderId: m.order.id,
+    mode: 'story',
+    ratio: m.req.ratio,
+    take: m.req.takeIdx,
+    status: scenes.every(s => s.status === 'done') ? 'ready' : allFramed && sinceApprove < 0 ? 'review' : 'running',
+    scenes: t < 1500 ? [] : scenes,
+    costUsd: estimateCostUsd(plan, 'story') - (sinceApprove < 0 ? clipCostUsd : 0),
+    error: null,
+    sheets: t < 1000 ? [] : [{label: `Nhân vật · ${m.order.recipient}`, url: IMAGES[0]}, {label: 'Bối cảnh 1', url: IMAGES[1]}],
+    logline: 'Người con đi xa nhớ những buổi sáng bên mẹ, và quyết định về nhà đúng ngày sinh nhật mẹ.',
+    timing: 'measured',
+    clipCostUsd,
+  };
+}
+
 function mockMv(id: string): MvView {
   const m = mockMvs.get(id);
   if (!m) throw new Error('Không tìm thấy MV');
+  if (m.req.mode === 'story') return mockStory(id, m);
   const dur = m.order.takes[m.req.takeIdx]?.durationSec ?? 180;
   const plan = planScenes(m.order.lyrics ?? [], dur, m.req.mode);
   const t = Date.now() - m.start;

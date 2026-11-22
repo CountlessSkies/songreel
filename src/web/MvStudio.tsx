@@ -1,11 +1,12 @@
 // Xuong MV, dung theo ref/solsongs-v1.6.1.html: the "Nguyen lieu", "Phong chieu" (canvas + timeline) va storyboard.
 // Chua co mvId: khach chon muc, khung hinh, anh roi bam "Dung MV". Co mvId: theo doi, xem va xuat MV.
+// MV ke chuyen (Pro/Cinematic): dung o buoc storyboard ('review') cho khach xem tren nhac roi bam "Quay video".
 // Ban ref con cho nhap loi, sua mo ta va tao lai tung canh; app chua co API do nen bo.
 import {useEffect, useMemo, useRef, useState} from 'react';
 import type {OrderView} from '../shared/catalog';
 import {estimateCostUsd, MV_TIERS, planScenes, type MvRatio, type MvScene, type MvTier, type MvView} from '../shared/mv';
 import {MOCK} from './api';
-import {getMv, type MvRequest} from './mvApi';
+import {approveMv, getMv, type MvRequest} from './mvApi';
 import {createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
 import {StudioShell} from './StudioShell';
 
@@ -25,6 +26,7 @@ function pills(s: MvScene): {image: PillState; clip: PillState | null} {
   if (s.status === 'failed') return {image: 'err', clip: clip ? 'err' : null};
   if (s.status === 'pending') return {image: 'wait', clip: clip ? 'wait' : null};
   if (s.status === 'image') return {image: 'run', clip: clip ? 'wait' : null};
+  if (s.status === 'framed') return {image: 'ok', clip: clip ? 'wait' : null};
   if (s.status === 'clip') return {image: 'ok', clip: 'run'};
   return {image: 'ok', clip: clip ? 'ok' : null};
 }
@@ -54,10 +56,15 @@ export function MvStudio(props: {
   const [pickRatio, setPickRatio] = useState<MvRatio>('9:16');
   const [photos, setPhotos] = useState<File[]>([]);
   const [hasConsent, setHasConsent] = useState(false);
+  const [pollKey, setPollKey] = useState(0);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   useEffect(() => {
-    setMv(null);
-    if (!mvId) return;
+    if (!mvId) {
+      setMv(null);
+      return;
+    }
     let stop = false;
     const tick = async () => {
       try {
@@ -73,7 +80,21 @@ export function MvStudio(props: {
     return () => {
       stop = true;
     };
-  }, [mvId]);
+  }, [mvId, pollKey]);
+
+  const approve = async () => {
+    if (!mvId) return;
+    setIsApproving(true);
+    setApproveError(null);
+    try {
+      setMv(await approveMv(mvId, props.passcode));
+      setPollKey(k => k + 1);
+    } catch (e) {
+      setApproveError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -101,6 +122,8 @@ export function MvStudio(props: {
   const scenes = isSetup ? planned : (mv?.scenes ?? []);
   const isReady = mv?.status === 'ready';
   const isFailed = mv?.status === 'failed';
+  const isReview = mv?.status === 'review';
+  const isStory = MV_TIERS[isSetup ? tier : props.tier].mode === 'story';
   const [W, H] = ratio === '9:16' ? [720, 1280] : [1280, 720];
   const title = order.title ?? 'Bài hát';
 
@@ -209,6 +232,7 @@ export function MvStudio(props: {
   const total = dur || take.durationSec || 0;
   const isBusy = exportState !== 'idle';
   const done = scenes.filter(s => s.status === 'done').length;
+  const framed = scenes.filter(s => s.status === 'framed' || s.status === 'clip' || s.status === 'done').length;
   const clips = scenes.filter(s => s.kind === 'clip');
   const clipSec = clips.reduce((sum, c) => sum + c.clipSec, 0);
   const current = scenes.find(s => now >= s.start && now < s.end)?.idx ?? -1;
@@ -225,6 +249,10 @@ export function MvStudio(props: {
             ? `MV đã xong. Bấm ▶ để xem · ${mmss(now)} / ${mmss(total)}`
             : isSetup
               ? 'Chọn mức video rồi bấm “Dựng MV”. Bấm ▶ để nghe bài kèm phụ đề.'
+              : isReview
+                ? 'Storyboard đã xong. Bấm ▶ để xem các khung hình chạy trên nhạc.'
+              : mv && !scenes.length
+                ? 'Đang nghe bài để lấy mốc lời và viết kịch bản…'
               : mv
                 ? `Đang dựng: ${done}/${scenes.length} cảnh. Có thể xem thử các cảnh đã xong.`
                 : 'Đang tải MV…';
@@ -307,7 +335,8 @@ export function MvStudio(props: {
                 </div>
                 <div className="est">
                   <b>{planned.length} cảnh</b>, {planned.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
-                  {estimateCostUsd(planned).toFixed(2)} · dựng khoảng 5 đến 10 phút
+                  {estimateCostUsd(planned, MV_TIERS[tier].mode).toFixed(2)} ·{' '}
+                  {isStory ? 'storyboard khoảng 5 phút, duyệt xong mới quay video' : 'dựng khoảng 5 đến 10 phút'}
                 </div>
                 {!MOCK && (
                   <div className="f">
@@ -329,6 +358,12 @@ export function MvStudio(props: {
                   <dd>{scenes.length} cảnh · {clips.length} clip ({clipSec}s) · {scenes.length - clips.length} ảnh</dd>
                   <dt>Chi phí AI</dt>
                   <dd>~${mv.costUsd.toFixed(2)}</dd>
+                  {mv.timing && (
+                    <>
+                      <dt>Mốc lời</dt>
+                      <dd>{mv.timing === 'measured' ? 'Đo từ giọng hát' : 'Ước lượng'}</dd>
+                    </>
+                  )}
                 </dl>
                 <div
                   className="mv-prog"
@@ -340,8 +375,38 @@ export function MvStudio(props: {
                   <i style={{width: `${scenes.length ? (done / scenes.length) * 100 : 0}%`}} />
                 </div>
                 <div className="est">
-                  {isReady ? <b>MV đã xong</b> : isFailed ? <span className="w">Dựng MV bị dừng</span> : <>Đang dựng <b>{done}/{scenes.length}</b> cảnh</>}
+                  {isReady ? (
+                    <b>MV đã xong</b>
+                  ) : isFailed ? (
+                    <span className="w">Dựng MV bị dừng</span>
+                  ) : isReview ? (
+                    <b>Storyboard xong, chờ bạn duyệt</b>
+                  ) : mv.mode === 'story' && !scenes.length ? (
+                    <>Đang lấy mốc lời và viết kịch bản…</>
+                  ) : mv.mode === 'story' && framed < scenes.length && !done ? (
+                    <>Đang vẽ khung hình <b>{framed}/{scenes.length || '…'}</b> cảnh</>
+                  ) : (
+                    <>Đang dựng <b>{done}/{scenes.length}</b> cảnh</>
+                  )}
                 </div>
+                {isReview && (
+                  <div className="review">
+                    <p>
+                      Xem từng cảnh bên dưới và bấm ▶ ở phòng chiếu để xem storyboard chạy trên nhạc. Ưng rồi thì quay video cho cả{' '}
+                      {scenes.length} cảnh, chi phí AI thêm khoảng <b>${(mv.clipCostUsd ?? 0).toFixed(2)}</b>, mất khoảng 10 đến 20 phút.
+                    </p>
+                    {!MOCK && (
+                      <div className="f">
+                        <label htmlFor="mvPass2">Mã truy cập bản chạy thử</label>
+                        <input id="mvPass2" type="password" value={props.passcode} onChange={e => props.onPasscode(e.target.value)} autoComplete="off" />
+                      </div>
+                    )}
+                    <button className="btn primary wide" disabled={isApproving || (!MOCK && !props.passcode.trim())} onClick={() => void approve()}>
+                      {isApproving ? 'Đang gửi…' : '🎬 Duyệt và quay video'}
+                    </button>
+                    {approveError && <p className="err" role="alert">{approveError}</p>}
+                  </div>
+                )}
               </>
             )}
             {isFailed && <p className="err" role="alert">{mv?.error ?? 'Lỗi không xác định.'}</p>}
@@ -416,10 +481,31 @@ export function MvStudio(props: {
             <h2>Storyboard</h2>
           </div>
           <span className="note">
-            {isSetup ? 'Cảnh dự kiến. Bấm “Dựng MV” để AI vẽ ảnh và quay clip cho từng cảnh.' : 'Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.'}
+            {isSetup
+              ? isStory
+                ? 'Cảnh dự kiến. Bản Pro chia cảnh lại theo mốc lời đo từ giọng hát.'
+                : 'Cảnh dự kiến. Bấm “Dựng MV” để AI vẽ ảnh và quay clip cho từng cảnh.'
+              : mv?.mode === 'story'
+                ? 'Mỗi cảnh có khung đầu và khung cuối; video quay từ khung đầu tới khung cuối.'
+                : 'Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.'}
           </span>
         </div>
+        {mv?.logline && (
+          <p className="logline"><b>Câu chuyện:</b> {mv.logline}</p>
+        )}
         <div className="board">
+          {(mv?.sheets ?? []).map(sh => (
+            <article className="scene sheet" key={sh.url}>
+              <div className="thumb">
+                <span className="num">{sh.label}</span>
+                <img src={sh.url} alt={sh.label} />
+              </div>
+              <div className="body">
+                <div className="ly">Ảnh tham chiếu dùng cho mọi cảnh</div>
+                <div className="row"><a className="btn outline sm" href={sh.url} download>⬇ Ảnh</a></div>
+              </div>
+            </article>
+          ))}
           {scenes.map(s => {
             const p = pills(s);
             return (
@@ -436,6 +522,13 @@ export function MvStudio(props: {
                   <div className="ly">
                     {s.lines.length ? s.lines.map((l, i) => <span key={i}>{i > 0 && <br />}{l}</span>) : <i>{s.section}</i>}
                   </div>
+                  {s.action && <div className="act">{s.action}</div>}
+                  {s.endImageUrl && s.status !== 'done' && (
+                    <a className="endframe" href={s.endImageUrl} target="_blank" rel="noreferrer" title="Khung cuối của cảnh">
+                      <img src={s.endImageUrl} alt="Khung cuối" />
+                      <span>Khung cuối</span>
+                    </a>
+                  )}
                   <div className="meta">
                     <span className={`s-pill${PILL_CLASS[p.image]}`}>Ảnh: {IMAGE_TEXT[p.image]}</span>
                     {p.clip && (

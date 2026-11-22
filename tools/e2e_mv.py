@@ -1,7 +1,8 @@
 """Tao 1 MV that cho 1 don da xong roi poll toi khi dung xong. Ton tien that (~$5 kieu lai, ~$20 toan clip cho bai 3 phut).
 
-Chay: python tools/e2e_mv.py <base-url> <order-id> [hybrid|full] [9:16|16:9] [duration-sec]
+Chay: python tools/e2e_mv.py <base-url> <order-id> [hybrid|full|story] [9:16|16:9] [duration-sec]
 Khong truyen duration thi do tu file mp3 cua ban 1 (can ffprobe).
+Kieu story dung o buoc duyet storyboard (~$2); duyet bang POST /api/mv/<id>/approve roi chay lai poll de quay clip.
 """
 import json
 import pathlib
@@ -64,6 +65,8 @@ while time.time() - t0 < 50 * 60:
     if v["status"] != "running":
         break
     time.sleep(8)
+if v.get("timing"):
+    print(f"timing={v['timing']} logline={v.get('logline')!r} sheets={[s['label'] for s in v.get('sheets') or []]} clipCost=${v.get('clipCostUsd', 0):.2f}")
 clips = [s for s in v["scenes"] if s["kind"] == "clip"]
 print(f"== {mid} {v['status']} {round(time.time() - t0)}s scenes={len(v['scenes'])} clips={len(clips)} "
       f"clipSec={sum(s['clipSec'] for s in clips)} cost=${v['costUsd']:.2f} err={v['error']}")

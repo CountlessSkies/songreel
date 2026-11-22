@@ -1,19 +1,27 @@
-// Pipeline MV tam: Director (LLM chia canh, viet prompt) -> anh nhan vat goc -> anh tung canh (Nano Banana 2.1, lay anh goc lam
-// reference) -> clip Seedance 2.0 mini cho canh "clip". Ghep video lam tren trinh duyet. Chay tung buoc trong advanceMv(),
-// duoc goi tu GET /api/mv/:id va tu cron, giong pipeline bai hat.
+// Pipeline MV. Kieu 'hybrid'/'full' (Amateur): Director (LLM chia canh, viet prompt) -> anh nhan vat goc -> anh tung canh
+// (Nano Banana 2.1, lay anh goc lam reference) -> clip Seedance 2.0 mini cho canh "clip".
+// Kieu 'story' (Pro/Cinematic): xem mvStory.ts. Ghep video lam tren trinh duyet.
+// Chay tung buoc trong advanceMv(), duoc goi tu GET /api/mv/:id va tu cron, giong pipeline bai hat.
 import {RELS, type Answers, type LyricSection} from '../shared/catalog';
 import {planScenes, type MvMode, type MvRatio, type MvScene, type MvView} from '../shared/mv';
+import {advanceStory, initStory, STORY_ACTIVE, storyView, type StoryStage} from './mvStory';
 import {getRow, type Brief, type Env} from './pipeline';
 import {MV_DIRECTOR_SYSTEM, mvDirectorUser} from './prompts';
-import {chatText, queryTask, submitClip, submitImage, type RhResult} from './runninghub';
+import {chatText, costOf, isFailure, isSuccess, keepRaw, outputsOf, queryTask, submitClip, submitImage, uploadMedia} from './runninghub';
 
 const DIRECTOR_MODEL = 'openai/gpt-6.1-sol';
 const MAX_INFLIGHT = 8; // so task RunningHub chay cung luc cho 1 MV
 const MV_TIMEOUT_MS = 45 * 60_000;
+/** Kieu story: tu luc tao toi storyboard, va tu luc duyet toi xong clip. Thoi gian cho khach duyet khong tinh. */
+const STORY_FRAMES_TIMEOUT_MS = 40 * 60_000;
+const STORY_CLIPS_TIMEOUT_MS = 60 * 60_000;
 const MAX_TRIES = 2;
 const MAX_PHOTOS = 3;
 
-type Stage = 'plan' | 'anchor' | 'scenes' | 'ready' | 'failed';
+type Stage = 'plan' | 'anchor' | 'scenes' | StoryStage | 'ready' | 'failed';
+/** Cac buoc con chay (cron/GET day tiep). 'review' dung cho khach duyet. */
+const ACTIVE: Stage[] = ['plan', 'anchor', 'scenes', ...STORY_ACTIVE];
+const ACTIVE_SQL = ACTIVE.map(s => `'${s}'`).join(',');
 
 /** Trang thai 1 canh phia server. Prompt va link RunningHub khong tra ra client. */
 type SceneRow = MvScene & {
@@ -47,6 +55,8 @@ type Row = {
   llm_tokens: number;
   error: string | null;
   busy_until: number | null;
+  story: string | null;
+  approved_at: number | null;
 };
 
 export type MvInput = {
@@ -66,20 +76,23 @@ export async function createMv(env: Env, i: MvInput): Promise<string> {
   if (!(i.duration >= 30 && i.duration <= 600)) throw new Error('Độ dài bài không hợp lệ.');
   if (i.photos.length > MAX_PHOTOS) throw new Error(`Tối đa ${MAX_PHOTOS} ảnh.`);
 
-  const lyrics: LyricSection[] = JSON.parse(order.lyrics).sections;
-  const scenes: SceneRow[] = planScenes(lyrics, i.duration, i.mode).map(p => ({
-    ...p, imageUrl: null, clipUrl: null, status: 'pending', tries: 0, clipTries: 0,
-  }));
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
   for (let n = 0; n < i.photos.length; n++) {
     await env.BLOBS.put(`mvphoto/${id}/${n}`, i.photos[n].bytes, {metadata: {contentType: i.photos[n].type}, expirationTtl: 7 * 86400});
   }
+  const isStory = i.mode === 'story';
+  // Kieu story chia canh sau khi do moc loi (buoc 'timing'); kieu cu chia ngay theo moc uoc luong
+  const lyrics: LyricSection[] = JSON.parse(order.lyrics).sections;
+  const scenes: SceneRow[] = isStory
+    ? []
+    : planScenes(lyrics, i.duration, i.mode).map(p => ({...p, imageUrl: null, clipUrl: null, status: 'pending', tries: 0, clipTries: 0}));
+  const story = isStory ? JSON.stringify(await initStory(env, i.photos)) : null;
   const now = Date.now();
   await env.DB.prepare(
-    `INSERT INTO mvs (id, order_id, created_at, updated_at, mode, ratio, take, duration, stage, photos, scenes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'plan', ?, ?)`,
+    `INSERT INTO mvs (id, order_id, created_at, updated_at, mode, ratio, take, duration, stage, photos, scenes, story)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, i.orderId, now, now, i.mode, i.ratio, i.take, i.duration, i.photos.length, JSON.stringify(scenes))
+    .bind(id, i.orderId, now, now, i.mode, i.ratio, i.take, i.duration, isStory ? 'timing' : 'plan', i.photos.length, JSON.stringify(scenes), story)
     .run();
   return id;
 }
@@ -89,7 +102,7 @@ export const getMvRow = (env: Env, id: string) => env.DB.prepare('SELECT * FROM 
 async function lock(env: Env, id: string, ms: number) {
   const now = Date.now();
   const r = await env.DB.prepare(
-    `UPDATE mvs SET busy_until = ? WHERE id = ? AND stage IN ('plan','anchor','scenes') AND (busy_until IS NULL OR busy_until < ?)`,
+    `UPDATE mvs SET busy_until = ? WHERE id = ? AND stage IN (${ACTIVE_SQL}) AND (busy_until IS NULL OR busy_until < ?)`,
   )
     .bind(now + ms, id, now)
     .run();
@@ -104,11 +117,24 @@ async function save(env: Env, id: string, f: Partial<Row>) {
     .run();
 }
 
+const LOCK_MS: Partial<Record<Stage, number>> = {plan: 150_000, timing: 150_000, script: 240_000};
+
 export async function advanceMv(env: Env, id: string): Promise<void> {
   const row = await getMvRow(env, id);
-  if (!row || !['plan', 'anchor', 'scenes'].includes(row.stage)) return;
-  if (!(await lock(env, id, row.stage === 'plan' ? 150_000 : 60_000))) return;
+  if (!row || !ACTIVE.includes(row.stage)) return;
+  if (!(await lock(env, id, LOCK_MS[row.stage] ?? 60_000))) return;
   try {
+    if (row.mode === 'story') {
+      const elapsed = Date.now() - (row.stage === 'clips' ? (row.approved_at ?? row.created_at) : row.created_at);
+      if (row.stage === 'clips' && elapsed > STORY_CLIPS_TIMEOUT_MS) throw new Error('Quay clip quá 60 phút chưa xong.');
+      if (row.stage !== 'clips' && elapsed > STORY_FRAMES_TIMEOUT_MS) throw new Error('Dựng storyboard quá 40 phút chưa xong.');
+      await advanceStory(env, row, {
+        save: f => save(env, id, f as Partial<Row>),
+        unlock: () => unlock(env, id),
+        putUrl: (key, url, type) => putUrl(env, key, url, type),
+      });
+      return;
+    }
     if (Date.now() - row.created_at > MV_TIMEOUT_MS) throw new Error('Dựng MV quá 45 phút chưa xong.');
     if (row.stage === 'plan') await stepPlan(env, row);
     else if (row.stage === 'anchor') await stepAnchor(env, row);
@@ -175,20 +201,14 @@ async function stepPlan(env: Env, row: Row) {
 }
 
 // ── Anh nhan vat goc ────────────────────────────────────────────────────────
+/** Anh khach upload len RunningHub truoc (luat cua RunningHub: khong dua base64/duong dan file vao imageUrls). */
 async function photoRefs(env: Env, row: Row): Promise<string[]> {
   const refs: string[] = [];
   for (let n = 0; n < row.photos; n++) {
     const {value, metadata} = await env.BLOBS.getWithMetadata<{contentType?: string}>(`mvphoto/${row.id}/${n}`, 'arrayBuffer');
-    if (value) refs.push(toDataUri(value, metadata?.contentType ?? 'image/jpeg'));
+    if (value) refs.push(await uploadMedia(env.RUNNINGHUB_API_KEY, value, metadata?.contentType ?? 'image/jpeg', `photo${n}.jpg`));
   }
   return refs;
-}
-
-function toDataUri(bytes: ArrayBuffer, mime: string) {
-  const u8 = new Uint8Array(bytes);
-  let s = '';
-  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
-  return `data:${mime};base64,${btoa(s)}`;
 }
 
 async function stepAnchor(env: Env, row: Row) {
@@ -204,10 +224,11 @@ async function stepAnchor(env: Env, row: Row) {
     return;
   }
   const res = await queryTask(env.RUNNINGHUB_API_KEY, row.anchor_task);
-  if (res.status === 'FAILED') {
-    throw new Error(`Không tạo được ảnh nhân vật: ${res.errorMessage || res.errorCode || 'không rõ'}${row.photos ? ' (thử ảnh khác)' : ''}`);
+  await keepRaw(env.BLOBS, res);
+  if (isFailure(res.status)) {
+    throw new Error(`Không tạo được ảnh nhân vật: ${res.errorMessage || res.errorCode || res.status}${row.photos ? ' (thử ảnh khác)' : ''}`);
   }
-  if (res.status !== 'SUCCESS') return unlock(env, row.id);
+  if (!isSuccess(res.status)) return unlock(env, row.id);
   const url = imageOf(res);
   if (!url) throw new Error('RunningHub không trả ảnh nhân vật');
   await putUrl(env, `mvimg/${row.id}/a`, url, 'image/jpeg');
@@ -226,9 +247,10 @@ async function stepScenes(env: Env, row: Row) {
     scenes.map(async s => {
       if (s.status === 'image' && s.imgTask) {
         const res = await queryTask(key, s.imgTask).catch(() => null);
-        if (!res || (res.status !== 'SUCCESS' && res.status !== 'FAILED')) return;
+        if (!res || (!isSuccess(res.status) && !isFailure(res.status))) return;
+        await keepRaw(env.BLOBS, res);
         s.imgTask = null;
-        const url = res.status === 'SUCCESS' ? imageOf(res) : null;
+        const url = isSuccess(res.status) ? imageOf(res) : null;
         if (url) {
           cost += costOf(res);
           await putUrl(env, `mvimg/${row.id}/${s.idx}`, url, 'image/jpeg');
@@ -245,9 +267,10 @@ async function stepScenes(env: Env, row: Row) {
         }
       } else if (s.status === 'clip' && s.clipTask) {
         const res = await queryTask(key, s.clipTask).catch(() => null);
-        if (!res || (res.status !== 'SUCCESS' && res.status !== 'FAILED')) return;
+        if (!res || (!isSuccess(res.status) && !isFailure(res.status))) return;
+        await keepRaw(env.BLOBS, res);
         s.clipTask = null;
-        const url = res.status === 'SUCCESS' ? (res.results ?? []).find(r => r.outputType === 'mp4' && r.url)?.url : null;
+        const url = isSuccess(res.status) ? outputsOf(res, 'video')[0]?.url : null;
         if (url) {
           cost += costOf(res);
           await putUrl(env, `mvclip/${row.id}/${s.idx}`, url, 'video/mp4');
@@ -296,8 +319,7 @@ async function stepScenes(env: Env, row: Row) {
   await save(env, row.id, {scenes: JSON.stringify(scenes), cost_usd: cost, ...(done ? {stage: 'ready' as Stage} : {})});
 }
 
-const imageOf = (res: RhResult) => (res.results ?? []).find(r => ['jpg', 'jpeg', 'png', 'webp'].includes(r.outputType) && r.url)?.url ?? null;
-const costOf = (res: RhResult) => Number(res.usage?.thirdPartyConsumeMoney ?? 0) || 0;
+const imageOf = (res: Parameters<typeof outputsOf>[0]) => outputsOf(res, 'image')[0]?.url ?? null;
 const unlock = (env: Env, id: string) => env.DB.prepare('UPDATE mvs SET busy_until = NULL WHERE id = ?').bind(id).run().then(() => {});
 
 async function putUrl(env: Env, key: string, url: string, fallbackType: string) {
@@ -309,26 +331,39 @@ async function putUrl(env: Env, key: string, url: string, fallbackType: string) 
 
 // ── View ────────────────────────────────────────────────────────────────────
 export function toMvView(row: Row): MvView {
-  const scenes: SceneRow[] = JSON.parse(row.scenes);
-  return {
+  const base = {
     id: row.id,
     orderId: row.order_id,
     mode: row.mode,
     ratio: row.ratio,
     take: row.take,
-    status: row.stage === 'ready' ? 'ready' : row.stage === 'failed' ? 'failed' : 'running',
+    status: row.stage === 'ready' ? 'ready' : row.stage === 'failed' ? 'failed' : row.stage === 'review' ? 'review' : 'running',
+    costUsd: row.cost_usd,
+    error: row.error,
+  } as const;
+  if (row.mode === 'story') return {...base, ...storyView(row)};
+  const scenes: SceneRow[] = JSON.parse(row.scenes);
+  return {
+    ...base,
     scenes: scenes.map(s => ({
       idx: s.idx, start: s.start, end: s.end, section: s.section, lines: s.lines, kind: s.kind, clipSec: s.clipSec,
       imageUrl: s.imageUrl, clipUrl: s.clipUrl, status: s.status,
     })),
-    costUsd: row.cost_usd,
-    error: row.error,
   };
+}
+
+/** Khach duyet storyboard (kieu story): chuyen sang quay clip. */
+export async function approveMv(env: Env, id: string): Promise<boolean> {
+  const now = Date.now();
+  const r = await env.DB.prepare(`UPDATE mvs SET stage = 'clips', approved_at = ?, updated_at = ?, busy_until = NULL WHERE id = ? AND stage = 'review'`)
+    .bind(now, now, id)
+    .run();
+  return r.meta.changes === 1;
 }
 
 export async function sweepMv(env: Env) {
   const {results} = await env.DB.prepare(
-    `SELECT id FROM mvs WHERE stage IN ('plan','anchor','scenes') AND (busy_until IS NULL OR busy_until < ?) ORDER BY updated_at LIMIT 5`,
+    `SELECT id FROM mvs WHERE stage IN (${ACTIVE_SQL}) AND (busy_until IS NULL OR busy_until < ?) ORDER BY updated_at LIMIT 5`,
   )
     .bind(Date.now())
     .all<{id: string}>();

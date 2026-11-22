@@ -1,7 +1,7 @@
 import {Hono} from 'hono';
 import type {Answers} from '../shared/catalog';
 import type {MvMode, MvRatio} from '../shared/mv';
-import {advanceMv, createMv, getMvRow, sweepMv, toMvView} from './mv';
+import {advanceMv, approveMv, createMv, getMvRow, sweepMv, toMvView} from './mv';
 import {advance, advanceAcoustic, createOrder, getRow, startAcoustic, sweep, toView, validateAnswers, type Env} from './pipeline';
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -60,7 +60,7 @@ app.post('/api/mv', async c => {
   if (!form) return c.json({error: 'Dữ liệu không hợp lệ.'}, 400);
   const mode = String(form.get('mode')) as MvMode;
   const ratio = String(form.get('ratio')) as MvRatio;
-  if (mode !== 'hybrid' && mode !== 'full') return c.json({error: 'Kiểu MV không hợp lệ.'}, 400);
+  if (mode !== 'hybrid' && mode !== 'full' && mode !== 'story') return c.json({error: 'Kiểu MV không hợp lệ.'}, 400);
   if (ratio !== '9:16' && ratio !== '16:9') return c.json({error: 'Khổ video không hợp lệ.'}, 400);
   const photos: {bytes: ArrayBuffer; type: string}[] = [];
   for (const f of form.getAll('photos')) {
@@ -90,6 +90,18 @@ app.get('/api/mv/:id', async c => {
   const row = await getMvRow(c.env, id);
   if (!row) return c.json({error: 'Không tìm thấy MV.'}, 404);
   return c.json(toMvView(row));
+});
+
+// Duyet storyboard (MV ke chuyen): tu day moi quay clip, ton tien that nen can ma truy cap
+app.post('/api/mv/:id/approve', async c => {
+  const pass = c.env.POC_PASSCODE;
+  if (pass && c.req.header('X-Passcode')?.trim() !== pass) {
+    return c.json({error: 'Mã truy cập không đúng.'}, 403);
+  }
+  const id = c.req.param('id');
+  if (!(await approveMv(c.env, id))) return c.json({error: 'MV này không ở bước chờ duyệt.'}, 409);
+  const row = await getMvRow(c.env, id);
+  return row ? c.json(toMvView(row)) : c.json({error: 'Không tìm thấy MV.'}, 404);
 });
 
 const MEDIA_KINDS = new Set(['audio', 'cover', 'mvimg', 'mvclip']);

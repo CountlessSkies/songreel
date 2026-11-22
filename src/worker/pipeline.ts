@@ -6,7 +6,7 @@ import {
 } from '../shared/catalog';
 import {critique, type Critique} from './critic';
 import {LYRICIST_SYSTEM, lyricistUser} from './prompts';
-import {chatText, queryTask, submitSunoCustom} from './runninghub';
+import {chatText, costOf, isFailure, isSuccess, keepRaw, outputsOf, queryTask, submitSunoCustom} from './runninghub';
 
 export type Env = {
   DB: D1Database;
@@ -14,6 +14,8 @@ export type Env = {
   ASSETS: Fetcher;
   RUNNINGHUB_API_KEY: string;
   POC_PASSCODE?: string;
+  /** Whisper de do moc loi cho MV Pro. Khong co thi dung moc uoc luong. */
+  OPENAI_API_KEY?: string;
 };
 
 export type Brief = {
@@ -259,31 +261,30 @@ async function stepLyrics(env: Env, row: Row) {
 
 async function stepProducer(env: Env, row: Row) {
   const res = await queryTask(env.RUNNINGHUB_API_KEY, row.rh_task_id!);
-  if (res.status === 'FAILED') throw new Error(`Suno lỗi: ${res.errorMessage || res.errorCode || 'không rõ'}`);
-  if (res.status !== 'SUCCESS') {
+  await keepRaw(env.BLOBS, res);
+  if (isFailure(res.status)) throw new Error(`Suno lỗi: ${res.errorMessage || res.errorCode || res.status}`);
+  if (!isSuccess(res.status)) {
     if (Date.now() - (row.submitted_at ?? row.updated_at) > SUNO_TIMEOUT_MS) throw new Error('Suno quá 15 phút chưa xong');
     await env.DB.prepare('UPDATE orders SET busy_until = NULL WHERE id = ?').bind(row.id).run();
     return;
   }
   // Link RunningHub chi song 24h: tai ve KV ngay
-  const items = res.results ?? [];
-  const audios = items.filter(r => ['mp3', 'm4a', 'wav'].includes(r.outputType));
-  const covers = items.filter(r => ['jpg', 'jpeg', 'png', 'webp'].includes(r.outputType));
+  const audios = outputsOf(res, 'audio');
+  const covers = outputsOf(res, 'image');
   if (!audios.length) throw new Error('Suno không trả file nhạc');
   const takes: Take[] = [];
   for (let i = 0; i < audios.length; i++) {
     const audioKey = `audio/${row.id}/${i}`;
-    await putUrl(env, audioKey, audios[i].url, `audio/${audios[i].outputType === 'm4a' ? 'mp4' : audios[i].outputType === 'wav' ? 'wav' : 'mpeg'}`);
+    await putUrl(env, audioKey, audios[i].url, audios[i].mime);
     let coverUrl: string | null = null;
     if (covers[i]) {
       const coverKey = `cover/${row.id}/${i}`;
-      await putUrl(env, coverKey, covers[i].url, covers[i].outputType === 'png' ? 'image/png' : 'image/jpeg');
+      await putUrl(env, coverKey, covers[i].url, covers[i].mime);
       coverUrl = `/api/media/${coverKey}`;
     }
     takes.push({audioUrl: `/api/media/${audioKey}`, coverUrl, durationSec: null});
   }
-  const cost = Number(res.usage?.thirdPartyConsumeMoney ?? 0) || 0;
-  await save(env, row.id, {stage: 'ready', takes: JSON.stringify(takes), cost_usd: row.cost_usd + cost});
+  await save(env, row.id, {stage: 'ready', takes: JSON.stringify(takes), cost_usd: row.cost_usd + costOf(res)});
 }
 
 // ── Ban acoustic (mua kem) ──────────────────────────────────────────────────
@@ -324,32 +325,32 @@ export async function advanceAcoustic(env: Env, id: string): Promise<void> {
   };
   try {
     const res = await queryTask(env.RUNNINGHUB_API_KEY, ac.task);
-    if (res.status === 'FAILED') {
-      await finish({...ac, status: 'failed', error: `Suno lỗi: ${res.errorMessage || res.errorCode || 'không rõ'}`});
+    await keepRaw(env.BLOBS, res);
+    if (isFailure(res.status)) {
+      await finish({...ac, status: 'failed', error: `Suno lỗi: ${res.errorMessage || res.errorCode || res.status}`});
       return;
     }
-    if (res.status !== 'SUCCESS') {
+    if (!isSuccess(res.status)) {
       if (now - ac.submittedAt > SUNO_TIMEOUT_MS) await finish({...ac, status: 'failed', error: 'Suno quá 15 phút chưa xong'});
       else await env.DB.prepare('UPDATE orders SET busy_until = NULL WHERE id = ?').bind(id).run();
       return;
     }
     // Suno luon ra 2 ban: chi giu ban dau
-    const items = res.results ?? [];
-    const audio = items.find(r => ['mp3', 'm4a', 'wav'].includes(r.outputType));
+    const [audio] = outputsOf(res, 'audio');
     if (!audio) {
       await finish({...ac, status: 'failed', error: 'Suno không trả file nhạc'});
       return;
     }
     const audioKey = `audio/${id}/acoustic`;
-    await putUrl(env, audioKey, audio.url, `audio/${audio.outputType === 'm4a' ? 'mp4' : audio.outputType === 'wav' ? 'wav' : 'mpeg'}`);
-    const cover = items.find(r => ['jpg', 'jpeg', 'png', 'webp'].includes(r.outputType));
+    await putUrl(env, audioKey, audio.url, audio.mime);
+    const [cover] = outputsOf(res, 'image');
     let coverUrl: string | null = null;
     if (cover) {
-      await putUrl(env, `cover/${id}/acoustic`, cover.url, cover.outputType === 'png' ? 'image/png' : 'image/jpeg');
+      await putUrl(env, `cover/${id}/acoustic`, cover.url, cover.mime);
       coverUrl = `/api/media/cover/${id}/acoustic`;
     }
     const take: Take = {audioUrl: `/api/media/${audioKey}`, coverUrl, durationSec: null};
-    await finish({...ac, status: 'ready', take}, Number(res.usage?.thirdPartyConsumeMoney ?? 0) || 0);
+    await finish({...ac, status: 'ready', take}, costOf(res));
   } catch (e) {
     await finish({...ac, status: 'failed', error: e instanceof Error ? e.message : String(e)});
   }

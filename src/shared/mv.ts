@@ -1,13 +1,16 @@
 import type {LyricSection} from './catalog';
 
-/** Hai kieu dung MV ma pipeline hien co. */
-export type MvMode = 'hybrid' | 'full';
+/**
+ * Kieu dung MV:
+ * - hybrid: anh + clip o dieu khuc (Amateur)
+ * - full: moi canh deu clip, mot nhan vat (pipeline cu, khong con muc nao dung)
+ * - story: pipeline ke chuyen cua director (ref/CAM_Creative_Pipeline_MV_Online.md): moc loi Whisper,
+ *   kich ban + shot list, character/location sheet, khung dau + khung cuoi tung canh, duyet storyboard, roi moi quay clip.
+ */
+export type MvMode = 'hybrid' | 'full' | 'story';
 export type MvRatio = '9:16' | '16:9';
 
-/**
- * Ba muc MV ban cho khach, theo ref/solsongs-v1.6.1.html. Tam ghep vao 2 kieu pipeline dang co
- * (Pro va Cinematic cung dung 'full') cho toi khi chot pipeline MV moi cua director.
- */
+/** Ba muc MV ban cho khach, theo ref/solsongs-v1.6.1.html. Pro va Cinematic cung dung pipeline 'story'. */
 export type MvTier = 'amateur' | 'pro' | 'cinematic';
 
 export const MV_TIERS: Record<MvTier, {label: string; price: number; mode: MvMode; description: string}> = {
@@ -20,14 +23,14 @@ export const MV_TIERS: Record<MvTier, {label: string; price: number; mode: MvMod
   pro: {
     label: 'Pro',
     price: 1_000_000,
-    mode: 'full',
-    description: 'Mọi cảnh đều là video chuyển động, giống MV thật.',
+    mode: 'story',
+    description: 'MV kể chuyện: kịch bản theo lời, nhân vật và bối cảnh nhất quán, duyệt storyboard trước khi quay video.',
   },
   cinematic: {
     label: 'Cinematic',
     price: 2_500_000,
-    mode: 'full',
-    description: 'Mọi cảnh đều là video chuyển động. Bản thử nghiệm: hiện dựng giống mức Pro.',
+    mode: 'story',
+    description: 'MV kể chuyện như mức Pro. Bản thử nghiệm: hiện dựng giống mức Pro.',
   },
 };
 
@@ -36,6 +39,8 @@ export const isMvTier = (v: string | null): v is MvTier => !!v && v in MV_TIERS;
 /** Gia RunningHub do that ngay 2026-11-19 (USD). */
 export const MV_COST = {
   image: 0.03, // Nano Banana 2.1 official, 1k
+  storyImage: 0.04, // Seedream 5.5 + phi anh tham chieu, do that 2026-11-22
+  storySheets: 4, // uoc tinh so anh character/location sheet
   clipPerSec: 0.1, // Seedance 2.0 mini i2v 720p
 };
 
@@ -45,7 +50,8 @@ export const CLIP_MAX = 15;
 export const HYBRID_CLIP = 6;
 
 export type SceneKind = 'clip' | 'still';
-export type SceneStatus = 'pending' | 'image' | 'clip' | 'done' | 'failed';
+/** 'framed': da co khung dau (va khung cuoi), cho duyet storyboard roi moi quay clip (chi kieu story). */
+export type SceneStatus = 'pending' | 'image' | 'framed' | 'clip' | 'done' | 'failed';
 
 export type MvScene = {
   idx: number;
@@ -59,6 +65,12 @@ export type MvScene = {
   imageUrl: string | null;
   clipUrl: string | null;
   status: SceneStatus;
+  /** Kieu story: khung cuoi cua canh. */
+  endImageUrl?: string | null;
+  /** Kieu story: chi dao dien xuat bang tieng Viet cho storyboard. */
+  action?: string;
+  /** Moc [bat dau, ket thuc] tung cau trong canh (do bang Whisper). Khong co thi chia deu canh. */
+  lineTimes?: [number, number][];
 };
 
 export type MvView = {
@@ -67,10 +79,19 @@ export type MvView = {
   mode: MvMode;
   ratio: MvRatio;
   take: number;
-  status: 'running' | 'ready' | 'failed';
+  /** 'review': storyboard xong, cho khach duyet roi moi quay clip (kieu story). */
+  status: 'running' | 'review' | 'ready' | 'failed';
   scenes: MvScene[];
   costUsd: number;
   error: string | null;
+  /** Kieu story: anh nhan vat va boi canh dung lam tham chieu. */
+  sheets?: {label: string; url: string}[];
+  /** Kieu story: cau tom tat cau chuyen. */
+  logline?: string | null;
+  /** Moc loi do tu giong hat hay uoc luong. */
+  timing?: 'measured' | 'estimated' | null;
+  /** Kieu story: chi phi quay clip uoc tinh (USD), hien o buoc duyet. */
+  clipCostUsd?: number;
 };
 
 /**
@@ -100,7 +121,7 @@ export function planScenes(lyrics: LyricSection[], durationSec: number, mode: Mv
   const out: Raw[] = [];
   for (const r of raw) {
     const len = r.end - r.start;
-    if (mode === 'full' && len > CLIP_MAX) {
+    if (mode !== 'hybrid' && len > CLIP_MAX) {
       const n = Math.ceil(len / CLIP_MAX);
       for (let k = 0; k < n; k++) {
         out.push({...r, start: r.start + (len * k) / n, end: r.start + (len * (k + 1)) / n, lines: k === 0 ? r.lines : []});
@@ -108,13 +129,16 @@ export function planScenes(lyrics: LyricSection[], durationSec: number, mode: Mv
     } else out.push(r);
   }
   return out.map((r, idx) => {
-    const kind: SceneKind = mode === 'full' || r.chorus ? 'clip' : 'still';
-    const cap = mode === 'full' ? CLIP_MAX : HYBRID_CLIP;
+    const kind: SceneKind = mode !== 'hybrid' || r.chorus ? 'clip' : 'still';
+    const cap = mode !== 'hybrid' ? CLIP_MAX : HYBRID_CLIP;
     const clipSec = kind === 'clip' ? Math.min(cap, Math.max(CLIP_MIN, Math.round(r.end - r.start))) : 0;
     return {idx, start: r.start, end: r.end, section: r.section, lines: r.lines, kind, clipSec};
   });
 }
 
-export function estimateCostUsd(scenes: {clipSec: number}[]) {
-  return scenes.reduce((sum, s) => sum + MV_COST.image + s.clipSec * MV_COST.clipPerSec, 0);
+/** Chi phi AI uoc tinh (USD). Kieu story: 2 khung moi canh + cac sheet, clip moi canh. */
+export function estimateCostUsd(scenes: {clipSec: number}[], mode: MvMode = 'hybrid') {
+  const clips = scenes.reduce((sum, s) => sum + s.clipSec * MV_COST.clipPerSec, 0);
+  if (mode === 'story') return clips + (scenes.length * 2 + MV_COST.storySheets) * MV_COST.storyImage;
+  return clips + scenes.length * MV_COST.image;
 }
