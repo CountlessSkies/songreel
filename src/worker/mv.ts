@@ -117,7 +117,7 @@ async function save(env: Env, id: string, f: Partial<Row>) {
     .run();
 }
 
-const LOCK_MS: Partial<Record<Stage, number>> = {plan: 150_000, timing: 150_000, script: 240_000};
+const LOCK_MS: Partial<Record<Stage, number>> = {plan: 150_000, timing: 150_000, script: 420_000};
 
 export async function advanceMv(env: Env, id: string): Promise<void> {
   const row = await getMvRow(env, id);

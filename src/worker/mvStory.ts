@@ -44,6 +44,9 @@ export type Story = {
   locations: Location[];
   /** Anh khach da upload len RunningHub (song 24h), dung cho character sheet. */
   photoUrls: string[];
+  /** So lan viet kich ban da loi va loi gan nhat. */
+  scriptTries?: number;
+  scriptError?: string;
 };
 
 export type StoryScene = MvScene & {
@@ -97,9 +100,23 @@ export async function initStory(env: Env, photos: {bytes: ArrayBuffer; type: str
   return {timing: 'estimated', characters: [], locations: [], photoUrls};
 }
 
+const SCRIPT_TRIES = 3;
+
 export async function advanceStory(env: Env, row: StoryRow, ctx: StoryCtx) {
   if (row.stage === 'timing') return stepTiming(env, row, ctx);
-  if (row.stage === 'script') return stepScript(env, row, ctx);
+  if (row.stage === 'script') {
+    // LLM hay loi tam thoi (524, JSON cut): thu lai toi da 3 lan roi moi bao hong
+    try {
+      return await stepScript(env, row, ctx);
+    } catch (e) {
+      const story: Story = JSON.parse(row.story!);
+      story.scriptTries = (story.scriptTries ?? 0) + 1;
+      story.scriptError = e instanceof Error ? e.message : String(e);
+      if (story.scriptTries >= SCRIPT_TRIES) throw new Error(`Viết kịch bản lỗi ${SCRIPT_TRIES} lần: ${story.scriptError}`);
+      await ctx.save({story: JSON.stringify(story)});
+      return;
+    }
+  }
   if (row.stage === 'sheets') return stepSheets(env, row, ctx);
   if (row.stage === 'frames') return stepFrames(env, row, ctx);
   if (row.stage === 'clips') return stepClips(env, row, ctx);

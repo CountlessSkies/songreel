@@ -187,6 +187,11 @@ export function submitClip(
 // ── LLM proxy ───────────────────────────────────────────────────────────────
 export type LlmUsage = {input: number; output: number};
 
+/**
+ * Goi LLM qua proxy cua RunningHub, nhan ket qua dang stream (SSE).
+ * Proxy nam sau Cloudflare: neu cho tra loi tron goi qua 100s se bi loi 524 (kich ban MV dai, model suy nghi lau),
+ * con stream thi proxy tra byte dau ngay nen khong bi cat.
+ */
 export async function chatText(
   apiKey: string,
   o: {model: string; system: string; user: string; maxTokens?: number},
@@ -197,18 +202,53 @@ export async function chatText(
     body: JSON.stringify({
       model: o.model,
       max_tokens: o.maxTokens ?? 6000,
+      stream: true,
+      stream_options: {include_usage: true},
       messages: [
         {role: 'system', content: o.system},
         {role: 'user', content: o.user},
       ],
     }),
   });
-  const data: any = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error?.message || data.message || `RunningHub LLM ${r.status}`);
-  const text = String(data.choices?.[0]?.message?.content ?? '').trim();
-  if (!text) throw new Error('AI không trả lời');
-  return {
-    text,
-    usage: {input: Number(data.usage?.prompt_tokens) || 0, output: Number(data.usage?.completion_tokens) || 0},
+  if (!r.ok || !r.body) {
+    const data: any = await r.json().catch(() => ({}));
+    throw new Error(data.error?.message || data.message || `RunningHub LLM ${r.status}`);
+  }
+  const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  let text = '';
+  let finish = '';
+  const usage: LlmUsage = {input: 0, output: 0};
+  const handle = (line: string) => {
+    const s = line.trim();
+    if (!s.startsWith('data:')) return;
+    const payload = s.slice(5).trim();
+    if (!payload || payload === '[DONE]') return;
+    let chunk: any;
+    try {
+      chunk = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (chunk.error) throw new Error(chunk.error.message || 'RunningHub LLM lỗi giữa chừng');
+    const c = chunk.choices?.[0];
+    if (c?.delta?.content) text += c.delta.content;
+    if (c?.finish_reason) finish = c.finish_reason;
+    if (chunk.usage) {
+      usage.input = Number(chunk.usage.prompt_tokens) || usage.input;
+      usage.output = Number(chunk.usage.completion_tokens) || usage.output;
+    }
   };
+  for (;;) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buf += value;
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    lines.forEach(handle);
+  }
+  if (buf) handle(buf);
+  text = text.trim();
+  if (!text) throw new Error(finish === 'length' ? 'AI hết token trước khi trả lời' : 'AI không trả lời');
+  return {text, usage};
 }
