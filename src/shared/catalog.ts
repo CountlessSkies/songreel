@@ -140,6 +140,12 @@ export type LyricSection = {name: string; kind: 'intro' | 'verse' | 'prechorus' 
 
 export type Take = {audioUrl: string; coverUrl: string | null; durationSec: number | null};
 
+/** Ban acoustic mua kem: thu sau khi thanh toan, cung loi voi 2 ban chinh. */
+export type AcousticView = {status: OrderStatus; take: Take | null; error: string | null};
+
+/** Gia ban (VND). Thanh toan van la gia lap. */
+export const PRICES = {song: 149_000, film: 299_000, acoustic: 49_000};
+
 export type OrderView = {
   id: string;
   writer: WriterKey;
@@ -152,5 +158,6 @@ export type OrderView = {
   recipient: string;
   lyrics: LyricSection[] | null;
   takes: Take[];
+  acoustic: AcousticView | null;
   createdAt: number;
 };

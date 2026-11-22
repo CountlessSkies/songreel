@@ -2,7 +2,7 @@ import {Hono} from 'hono';
 import type {Answers} from '../shared/catalog';
 import type {MvMode, MvRatio} from '../shared/mv';
 import {advanceMv, createMv, getMvRow, sweepMv, toMvView} from './mv';
-import {advance, createOrder, getRow, sweep, toView, validateAnswers, type Env} from './pipeline';
+import {advance, advanceAcoustic, createOrder, getRow, startAcoustic, sweep, toView, validateAnswers, type Env} from './pipeline';
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
@@ -29,9 +29,26 @@ app.get('/api/orders/:id', async c => {
   const id = c.req.param('id');
   // Chay buoc tiep theo ngay trong request (viet loi co the mat ~40s), cron lo don bi bo do
   await advance(c.env, id);
+  await advanceAcoustic(c.env, id);
   const row = await getRow(c.env, id);
   if (!row) return c.json({error: 'Không tìm thấy đơn.'}, 404);
   return c.json(toView(row));
+});
+
+// Ban acoustic mua kem: goi Suno that nen can ma truy cap nhu khi tao don
+app.post('/api/orders/:id/acoustic', async c => {
+  const pass = c.env.POC_PASSCODE;
+  if (pass && c.req.header('X-Passcode')?.trim() !== pass) {
+    return c.json({error: 'Mã truy cập không đúng.'}, 403);
+  }
+  const id = c.req.param('id');
+  try {
+    await startAcoustic(c.env, id);
+  } catch (e) {
+    return c.json({error: e instanceof Error ? e.message : String(e)}, 400);
+  }
+  const row = await getRow(c.env, id);
+  return row ? c.json(toView(row)) : c.json({error: 'Không tìm thấy đơn.'}, 404);
 });
 
 app.post('/api/mv', async c => {

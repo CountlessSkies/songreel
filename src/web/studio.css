@@ -295,4 +295,16 @@ a.btn{text-decoration:none}
 .card .actions .btn.wide{margin-top:0}
 .stage.wide{height:auto;aspect-ratio:16/9}
 .transport:disabled,.timeline button:disabled{cursor:default;opacity:.6}
+.card .upl{margin-bottom:12px}.card .consent{margin:-4px 0 12px}.card .btn.grow{flex:1}
+.card .f select{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
+.card .f input[type=password]{width:100%;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.card .tier .tm{color:var(--muted)}
+/* Ban acoustic dang thu: the cho trong trinh phat */
+.take.wait-take{cursor:default;opacity:.85}.take.wait-take .pbtn{display:grid;place-items:center}
+.bar .indeterminate{width:35%!important;animation:st-slide 1.4s ease-in-out infinite}
+.done-card .note,.done-card .err{margin:10px 0 0}.done-card .err{color:var(--bad);font-size:13px}
+/* Thong bao ngan duoi thanh tren cung (Ket noi AI, Xuong MV khi chua co bai) */
+.s-toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:40;margin:0;max-width:min(92vw,460px);padding:10px 16px;border-radius:12px;background:#fbf6ee;color:var(--ink);font-size:13.5px;box-shadow:0 12px 32px rgba(0,0,0,.35);text-align:center}
+.s-nav .tabs button[aria-disabled=true]{opacity:.55}
 }
+@keyframes st-slide{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}

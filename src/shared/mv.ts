@@ -1,21 +1,37 @@
 import type {LyricSection} from './catalog';
 
-/** Hai kieu MV tam. Gia ban la gia de xuat cho PoC, chua chot. */
+/** Hai kieu dung MV ma pipeline hien co. */
 export type MvMode = 'hybrid' | 'full';
 export type MvRatio = '9:16' | '16:9';
 
-export const MV_MODES: Record<MvMode, {label: string; price: number; description: string}> = {
-  hybrid: {
-    label: 'Lai ảnh + clip',
+/**
+ * Ba muc MV ban cho khach, theo ref/solsongs-v1.6.1.html. Tam ghep vao 2 kieu pipeline dang co
+ * (Pro va Cinematic cung dung 'full') cho toi khi chot pipeline MV moi cua director.
+ */
+export type MvTier = 'amateur' | 'pro' | 'cinematic';
+
+export const MV_TIERS: Record<MvTier, {label: string; price: number; mode: MvMode; description: string}> = {
+  amateur: {
+    label: 'Amateur',
     price: 299_000,
+    mode: 'hybrid',
     description: 'Điệp khúc là video chuyển động, các đoạn khác là ảnh có máy quay lướt nhẹ.',
   },
-  full: {
-    label: 'Toàn clip',
-    price: 699_000,
+  pro: {
+    label: 'Pro',
+    price: 1_000_000,
+    mode: 'full',
     description: 'Mọi cảnh đều là video chuyển động, giống MV thật.',
   },
+  cinematic: {
+    label: 'Cinematic',
+    price: 2_500_000,
+    mode: 'full',
+    description: 'Mọi cảnh đều là video chuyển động. Bản thử nghiệm: hiện dựng giống mức Pro.',
+  },
 };
+
+export const isMvTier = (v: string | null): v is MvTier => !!v && v in MV_TIERS;
 
 /** Gia RunningHub do that ngay 2026-11-19 (USD). */
 export const MV_COST = {

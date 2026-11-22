@@ -1,6 +1,6 @@
-// Khung chung cho cac man ben trong (bang hoi, cho, ket qua), dung theo ref/solsongs-v1.6.1.html.
+// Khung chung cho cac man ben trong (bang hoi, cho, ket qua, xuong MV), dung theo ref/solsongs-v1.6.1.html.
 // Chu "Sol Songs" (.wm, .wtag) dung chung CSS voi trang chu trong home.css.
-import {useId, type ReactNode} from 'react';
+import {useEffect, useId, useState, type ReactNode} from 'react';
 import './studio.css';
 
 /** Cot song am: 11 vach tren (mat troi) va bong phan chieu ben duoi. */
@@ -8,6 +8,8 @@ const BARS: [number, number][] = [
   [108.6, 148.1], [85.6, 157.7], [73.3, 162.9], [65.8, 166.1], [61.6, 167.8], [60.3, 168.4],
   [61.6, 167.8], [65.8, 166.1], [73.3, 162.9], [85.6, 157.7], [108.6, 148.1],
 ];
+
+const TOAST_MS = 3200;
 
 /** Logo song am. `barClass` gan class cho tung vach ('b' = tren, 'r' = bong) de tao hieu ung tien trinh. */
 export function WaveMark({width, height, barClass}: {
@@ -35,15 +37,25 @@ export function WaveMark({width, height, barClass}: {
   );
 }
 
-export function StudioShell({onHome, onBack, tab = 'song', onSong, children}: {
+export function StudioShell({onHome, onBack, tab = 'song', onSong, onMv, children}: {
   onHome: () => void;
   /** Co thi hien nut mui ten quay lai o goc trai. */
   onBack?: () => void;
-  /** 'mv' thi them tab "Xưởng MV" va tab "Bài hát" bam duoc (goi onSong). */
+  /** Tab dang mo. */
   tab?: 'song' | 'mv';
+  /** Bam tab "Bài hát" (khi dang o Xuong MV). */
   onSong?: () => void;
+  /** Bam tab "Xưởng MV". Khong co thi tab mo di vi chua co bai hat de dung MV. */
+  onMv?: () => void;
   children: ReactNode;
 }) {
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), TOAST_MS);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+
   return (
     <div className="studio">
       <div className="shell">
@@ -64,17 +76,27 @@ export function StudioShell({onHome, onBack, tab = 'song', onSong, children}: {
             </a>
             <nav className="tabs" aria-label="Các khu vực">
               <button onClick={onHome}>Trang chủ</button>
-              {tab === 'mv' ? (
-                <>
-                  <button onClick={onSong}>Bài hát</button>
-                  <button className="on" aria-current="page">Xưởng MV</button>
-                </>
-              ) : (
-                <button className="on" aria-current="page">Bài hát</button>
-              )}
+              <button
+                className={tab === 'song' ? 'on' : undefined}
+                aria-current={tab === 'song' ? 'page' : undefined}
+                onClick={tab === 'song' ? undefined : onSong}>
+                Bài hát
+              </button>
+              <button
+                className={tab === 'mv' ? 'on' : undefined}
+                aria-current={tab === 'mv' ? 'page' : undefined}
+                aria-disabled={!onMv && tab !== 'mv' ? true : undefined}
+                title={!onMv && tab !== 'mv' ? 'Tạo bài hát trước rồi dựng MV' : undefined}
+                onClick={tab === 'mv' ? undefined : onMv ?? (() => setToast('Tạo bài hát xong rồi mở Xưởng MV để dựng phim.'))}>
+                Xưởng MV
+              </button>
             </nav>
+            <button className="cfgbtn" onClick={() => setToast('Kết nối AI đang phát triển. Bản hiện tại đã dùng AI của Sol Songs.')}>
+              <span className="dot on" />Kết nối AI
+            </button>
           </div>
         </header>
+        {toast && <p className="s-toast" role="status">{toast}</p>}
         {children}
       </div>
     </div>

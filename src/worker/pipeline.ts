@@ -2,7 +2,7 @@
 // Moi buoc nang (goi LLM, hoi Suno) chay trong advance(): duoc goi tu GET /api/orders/:id va tu cron.
 import {
   DECADES, GENRES, INSTRUMENTS, MOODS, OCCASIONS, PRON, TEMPOS, VOCAL_STYLE, WRITERS,
-  type AgentKey, type Answers, type LyricSection, type OrderView, type Take, type WriterKey,
+  type AcousticView, type AgentKey, type Answers, type LyricSection, type OrderView, type Take, type WriterKey,
 } from '../shared/catalog';
 import {critique, type Critique} from './critic';
 import {LYRICIST_SYSTEM, lyricistUser} from './prompts';
@@ -51,7 +51,11 @@ type Row = {
   llm_tokens: number;
   error: string | null;
   busy_until: number | null;
+  acoustic: string | null;
 };
+
+/** Trang thai ban acoustic luu trong cot orders.acoustic. */
+type Acoustic = {status: AcousticView['status']; task: string; submittedAt: number; take?: Take; error?: string};
 
 const MAX_ROUNDS = 3; // 1 lan viet + toi da 2 lan sua
 const SUNO_TIMEOUT_MS = 15 * 60_000;
@@ -126,10 +130,15 @@ function parseLyricsJson(text: string): {title: string; sections: LyricSection[]
 }
 
 // ── Music Director ──────────────────────────────────────────────────────────
-function direct(a: Answers, voice: Brief['voice']) {
+const ACOUSTIC_STYLE = 'Vietnamese acoustic unplugged version, fingerstyle acoustic guitar, soft felt piano, intimate, no drums, Vietnamese vocals';
+
+function direct(a: Answers, voice: Brief['voice'], isAcoustic = false) {
   const [, bpm, style] = GENRES[a.genre];
   const tempo = Math.round(bpm * TEMPOS[a.tempo][1]);
-  const parts = [style, MOODS[a.mood][1], DECADES[a.decade][1], VOCAL_STYLE[voice], INSTRUMENTS[a.inst][1], `${tempo} BPM`];
+  // Ban acoustic: giu nhip va tam trang cua ban chinh, doi phoi khi sang guitar/piano moc
+  const parts = isAcoustic
+    ? [ACOUSTIC_STYLE, MOODS[a.mood][1], VOCAL_STYLE[voice], `${tempo} BPM`]
+    : [style, MOODS[a.mood][1], DECADES[a.decade][1], VOCAL_STYLE[voice], INSTRUMENTS[a.inst][1], `${tempo} BPM`];
   return {
     tags: parts.filter(Boolean).join(', '),
     vocalGender: voice === 'male' ? ('m' as const) : voice === 'female' ? ('f' as const) : undefined,
@@ -277,6 +286,81 @@ async function stepProducer(env: Env, row: Row) {
   await save(env, row.id, {stage: 'ready', takes: JSON.stringify(takes), cost_usd: row.cost_usd + cost});
 }
 
+// ── Ban acoustic (mua kem) ──────────────────────────────────────────────────
+/** Gui Suno thu ban acoustic cho don da xong. Moi don chi thu 1 lan (thu lai neu lan truoc loi). */
+export async function startAcoustic(env: Env, id: string): Promise<void> {
+  const row = await getRow(env, id);
+  if (!row || row.stage !== 'ready' || !row.lyrics) throw new Error('Bài hát chưa xong.');
+  if (row.acoustic && (JSON.parse(row.acoustic) as Acoustic).status !== 'failed') return;
+  const a: Answers = JSON.parse(row.answers);
+  const brief: Brief = JSON.parse(row.brief);
+  const d = direct(a, brief.voice, true);
+  const task = await submitSunoCustom(env.RUNNINGHUB_API_KEY, {
+    title: `${row.title ?? `Bài hát cho ${brief.name}`} (Acoustic)`,
+    lyrics: tagLyrics(JSON.parse(row.lyrics).sections),
+    tags: d.tags,
+    negativeTags: 'english lyrics, spoken word, drums, edm, heavy bass',
+    vocalGender: d.vocalGender,
+  });
+  const acoustic: Acoustic = {status: 'running', task, submittedAt: Date.now()};
+  await env.DB.prepare('UPDATE orders SET acoustic = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(acoustic), Date.now(), id).run();
+}
+
+/** Hoi Suno ban acoustic dang thu. Dung chung khoa busy_until (don da o stage 'ready' nen khong tranh voi pipeline chinh). */
+export async function advanceAcoustic(env: Env, id: string): Promise<void> {
+  const row = await getRow(env, id);
+  if (!row?.acoustic || row.stage !== 'ready') return;
+  const ac: Acoustic = JSON.parse(row.acoustic);
+  if (ac.status !== 'running') return;
+  const now = Date.now();
+  const locked = await env.DB.prepare('UPDATE orders SET busy_until = ? WHERE id = ? AND (busy_until IS NULL OR busy_until < ?)')
+    .bind(now + 90_000, id, now)
+    .run();
+  if (locked.meta.changes !== 1) return;
+  const finish = async (next: Acoustic, cost = 0) => {
+    await env.DB.prepare('UPDATE orders SET acoustic = ?, cost_usd = cost_usd + ?, updated_at = ?, busy_until = NULL WHERE id = ?')
+      .bind(JSON.stringify(next), cost, Date.now(), id)
+      .run();
+  };
+  try {
+    const res = await queryTask(env.RUNNINGHUB_API_KEY, ac.task);
+    if (res.status === 'FAILED') {
+      await finish({...ac, status: 'failed', error: `Suno lỗi: ${res.errorMessage || res.errorCode || 'không rõ'}`});
+      return;
+    }
+    if (res.status !== 'SUCCESS') {
+      if (now - ac.submittedAt > SUNO_TIMEOUT_MS) await finish({...ac, status: 'failed', error: 'Suno quá 15 phút chưa xong'});
+      else await env.DB.prepare('UPDATE orders SET busy_until = NULL WHERE id = ?').bind(id).run();
+      return;
+    }
+    // Suno luon ra 2 ban: chi giu ban dau
+    const items = res.results ?? [];
+    const audio = items.find(r => ['mp3', 'm4a', 'wav'].includes(r.outputType));
+    if (!audio) {
+      await finish({...ac, status: 'failed', error: 'Suno không trả file nhạc'});
+      return;
+    }
+    const audioKey = `audio/${id}/acoustic`;
+    await putUrl(env, audioKey, audio.url, `audio/${audio.outputType === 'm4a' ? 'mp4' : audio.outputType === 'wav' ? 'wav' : 'mpeg'}`);
+    const cover = items.find(r => ['jpg', 'jpeg', 'png', 'webp'].includes(r.outputType));
+    let coverUrl: string | null = null;
+    if (cover) {
+      await putUrl(env, `cover/${id}/acoustic`, cover.url, cover.outputType === 'png' ? 'image/png' : 'image/jpeg');
+      coverUrl = `/api/media/cover/${id}/acoustic`;
+    }
+    const take: Take = {audioUrl: `/api/media/${audioKey}`, coverUrl, durationSec: null};
+    await finish({...ac, status: 'ready', take}, Number(res.usage?.thirdPartyConsumeMoney ?? 0) || 0);
+  } catch (e) {
+    await finish({...ac, status: 'failed', error: e instanceof Error ? e.message : String(e)});
+  }
+}
+
+function acousticView(raw: string | null): AcousticView | null {
+  if (!raw) return null;
+  const ac: Acoustic = JSON.parse(raw);
+  return {status: ac.status, take: ac.take ?? null, error: ac.error ?? null};
+}
+
 async function putUrl(env: Env, key: string, url: string, contentType: string) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Tải file kết quả lỗi ${r.status}`);
@@ -305,6 +389,7 @@ export function toView(row: Row): OrderView {
     recipient: brief.name,
     lyrics: row.stage === 'ready' ? lyrics : null,
     takes: row.takes ? JSON.parse(row.takes) : [],
+    acoustic: acousticView(row.acoustic),
     createdAt: row.created_at,
   };
 }
@@ -317,4 +402,11 @@ export async function sweep(env: Env) {
     .bind(Date.now())
     .all<{id: string}>();
   await Promise.all(results.map(r => advance(env, r.id)));
+  const {results: acoustic} = await env.DB.prepare(
+    `SELECT id FROM orders WHERE stage = 'ready' AND json_extract(acoustic, '$.status') = 'running'
+     AND (busy_until IS NULL OR busy_until < ?) LIMIT 10`,
+  )
+    .bind(Date.now())
+    .all<{id: string}>();
+  await Promise.all(acoustic.map(r => advanceAcoustic(env, r.id)));
 }

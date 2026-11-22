@@ -15,7 +15,7 @@ Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI vi�
 - **Worker `songreel-poc`:**
   - Hono API trên `/api/*`. SPA React do binding `ASSETS` phục vụ.
   - Cron chạy mỗi phút để xử lý tiếp các đơn mà khách đã đóng tab.
-- **D1 `songreel`** (`249a274e-…`): bảng `orders`, xem `migrations/0001_orders.sql`.
+- **D1 `songreel`** (`249a274e-…`): bảng `orders` và `mvs`, xem `migrations/`. `0003_acoustic.sql` thêm cột `orders.acoustic`.
 - **KV `songreel-blobs`** (`8227a667…`): lưu mp3 và ảnh bìa. Dùng KV vì token wrangler không có quyền R2.
 - **Secrets:** `RUNNINGHUB_API_KEY` (key của RoomCraft, tiền trừ ví RoomCraft) và `POC_PASSCODE` (mã truy cập ở bước cuối bảng hỏi). Bản local nằm trong `.dev.vars` (đã gitignore).
 
@@ -34,6 +34,10 @@ Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI vi�
 6. **Đẩy đơn:**
    - `GET /api/orders/:id` chạy bước tiếp theo ngay trong request. Viết lời bằng Sol có thể mất khoảng 40s.
    - Khoá `busy_until` trong D1 chặn 2 request gọi trùng một bước.
+7. **Bản acoustic (mua kèm):** `POST /api/orders/:id/acoustic` (cần mã truy cập) gửi Suno thu lại cùng lời với style guitar/piano mộc (`ACOUSTIC_STYLE`), giữ nhịp và giọng của bản chính.
+   - Suno ra 2 bản, chỉ giữ bản đầu, lưu KV `audio/<id>/acoustic`. Trạng thái nằm trong cột `orders.acoustic` (JSON).
+   - `GET /api/orders/:id` và cron hỏi tiếp khi đang thu. Lỗi thì gọi lại endpoint để thu lần nữa.
+   - Đo thật trên local: xong sau khoảng 50 giây.
 
 ## MV tạm (`src/worker/mv.ts`, `src/shared/mv.ts`)
 
@@ -57,18 +61,26 @@ Khách đã có bài → chọn kiểu MV, khổ 9:16/16:9, tuỳ chọn tối �
    - Canvas vẽ: thẻ "Dành tặng", ảnh Ken Burns, clip, chuyển cảnh mờ dần, chữ karaoke, logo.
    - Xuất bằng `canvas.captureStream` + `MediaRecorder`, ưu tiên MP4, mất đúng bằng thời lượng bài.
 
-Giá bán tạm: lai +299k, toàn clip +699k. Chi phí AI đo cho bài 3 phút: lai khoảng $5, toàn clip 720p khoảng $19.
+Giá bán tạm theo bản ref: Amateur +299k, Pro +1.000.000đ, Cinematic +2.500.000đ (`MV_TIERS` trong `src/shared/mv.ts`).
+- Amateur chạy kiểu **lai**; Pro và Cinematic cùng chạy kiểu **toàn clip**, chờ chốt pipeline MV mới của director (`ref/CAM_Creative_Pipeline_MV_Online.md`).
+- Chi phí AI đo cho bài 3 phút: lai khoảng $5, toàn clip 720p khoảng $19.
 
 ## Frontend (`src/web/`)
 
 - React 19. Trang chủ, bảng hỏi, màn chờ, màn kết quả và Xưởng MV tự vẽ bằng HTML/CSS lấy từ `ref/solsongs-v1.6.1.html`, không dùng component Astryx:
-  - `StudioShell.tsx`: thanh trên cùng (logo sóng âm, tab Trang chủ / Bài hát) và lớp bọc `.studio`.
+  - `StudioShell.tsx`: thanh trên cùng (logo sóng âm, tab Trang chủ / Bài hát / Xưởng MV, nút "Kết nối AI") và lớp bọc `.studio`. Tab Xưởng MV chỉ bấm được khi bài đã xong; nút "Kết nối AI" chỉ hiện thông báo đang phát triển.
   - `studio.css`: CSS của bản ref lồng trong `.studio`, kèm phần trả lại margin/màu chữ mà reset của Astryx đã xoá. Phần riêng của app nằm ở cuối file.
   - `Wizard` (8 chương, cột tiến trình bên trái), `Waiting`, `Result`.
-  - `MvStudio`: thẻ "Nguyên liệu" (thông tin MV, tiến độ, nút tạo file), "Phòng chiếu" (canvas, timeline bấm để tua) và storyboard. Bản ref cho nhập lời, sửa mô tả và tạo lại từng cảnh; app chưa có API đó nên màn này chỉ theo dõi, xem và xuất.
+  - `MvStudio` có 2 trạng thái:
+    - Chưa dựng (`?studio=1`): thẻ "Nguyên liệu" cho chọn ảnh nhân vật, khung hình, mức Amateur/Pro/Cinematic, mã truy cập, rồi bấm "▶ Dựng MV". Storyboard hiện các cảnh dự kiến, phòng chiếu phát bài kèm phụ đề.
+    - Đã dựng (`?mv=<id>&tier=`): thông tin MV, tiến độ, nút "Tạo file MV ↓", timeline bấm để tua, storyboard có ảnh/clip.
+    - Bản ref còn cho nhập lời, sửa mô tả và tạo lại từng cảnh; app chưa có API đó nên bỏ.
 - Không còn màn nào dùng component Astryx. `main.tsx` vẫn nạp reset và 7 theme của Astryx (CSS của các màn dựa trên reset đó); nút đổi theme bị ẩn.
-- So với bản ref, app bỏ: nút "Kết nối AI", gói acoustic, "Dựng MV từ bài có sẵn", các mức Amateur/Pro/Cinematic. App thêm ở chương 8: chọn AI viết lời và mã truy cập.
+- So với bản ref, app bỏ: "Dựng MV từ bài có sẵn", phong cách hình, độ phân giải clip, cách chia cảnh. App thêm ở chương 8: chọn AI viết lời và mã truy cập.
 - Màn kết quả:
+  - Hộp thanh toán có 2 ô mua kèm: gói tạo phim Amateur +299k và bản acoustic +49k; nút hiện đúng tổng. Tích acoustic thì sau khi thanh toán (giả lập) app gọi thu bản acoustic thật, xong hiện thành "Bản acoustic" trong trình phát và nút tải.
+  - Hộp "Biến bài hát thành thước phim" chỉ có lời giới thiệu và nút "Mở Xưởng MV →", như bản ref. Form dựng MV nằm trong Xưởng MV.
+  - Trạng thái đã thanh toán nằm trong `App` nên đi Xưởng MV rồi quay lại vẫn giữ. Tải lại trang thì mất (thanh toán còn giả lập), trừ khi đơn đã đặt bản acoustic.
   - Nghe thử 40s bắt đầu từ khoảng 1/4 bài, vì Suno không trả mốc điệp khúc.
   - Lời bài mờ từ sau điệp khúc đầu.
 - Khoá nghe thử chỉ làm phía client. File mp3 đầy đủ vẫn tải được qua `/api/media/...` nếu biết link.
@@ -92,7 +104,7 @@ CLOUDFLARE_ACCOUNT_ID=6a959e87aaf889d75de1f587de9f89cb npm run deploy
 
 ## Chưa làm / chưa kiểm chứng
 
-- Thanh toán thật (Viết Quân làm riêng), gửi email/Zalo, bản acoustic.
+- Thanh toán thật (Viết Quân làm riêng), gửi email/Zalo. Gói tạo phim chưa trừ vào giá MV thật, chỉ đổi nhãn "Đã có trong gói".
 - MV:
   - Mốc thời gian lời là ước lượng, nên chữ có thể lệch nhạc vài giây.
   - Chưa ghép phía server (4K, xuất nhanh), vì Worker không chạy được ffmpeg, cần Container.

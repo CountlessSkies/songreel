@@ -1,13 +1,18 @@
 // Xuong MV, dung theo ref/solsongs-v1.6.1.html: the "Nguyen lieu", "Phong chieu" (canvas + timeline) va storyboard.
-// Ban ref cho nhap loi, sua mo ta va tao lai tung canh; app chua co API do nen man nay chi theo doi, xem va xuat MV.
-import {useEffect, useRef, useState} from 'react';
+// Chua co mvId: khach chon muc, khung hinh, anh roi bam "Dung MV". Co mvId: theo doi, xem va xuat MV.
+// Ban ref con cho nhap loi, sua mo ta va tao lai tung canh; app chua co API do nen bo.
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {OrderView} from '../shared/catalog';
-import {MV_MODES, type MvRatio, type MvScene, type MvView} from '../shared/mv';
-import {getMv} from './mvApi';
+import {estimateCostUsd, MV_TIERS, planScenes, type MvRatio, type MvScene, type MvTier, type MvView} from '../shared/mv';
+import {MOCK} from './api';
+import {getMv, type MvRequest} from './mvApi';
 import {createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
 import {StudioShell} from './StudioShell';
 
 const POLL_MS = 3000;
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const vnd = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -27,16 +32,32 @@ function pills(s: MvScene): {image: PillState; clip: PillState | null} {
 const IMAGE_TEXT: Record<PillState, string> = {wait: 'chờ', run: 'đang tạo', ok: 'xong', err: 'lỗi'};
 const CLIP_TEXT: Record<PillState, string> = {wait: 'chờ', run: 'đang quay', ok: 'xong', err: 'lỗi'};
 
-export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
+export function MvStudio(props: {
   order: OrderView;
-  mvId: string;
   takeIdx: number;
+  /** null: chua dung, dang chon nguyen lieu. */
+  mvId: string | null;
+  tier: MvTier;
+  /** Khach da mua goi tao phim Amateur luc thanh toan. */
+  hasFilm: boolean;
+  onCreate: (req: MvRequest, tier: MvTier) => void;
+  isCreating: boolean;
+  createError: string | null;
+  passcode: string;
+  onPasscode: (v: string) => void;
   onBack: () => void;
   onHome: () => void;
 }) {
+  const {order, mvId, takeIdx, onBack, onHome} = props;
   const [mv, setMv] = useState<MvView | null>(null);
+  const [tier, setTier] = useState<MvTier>(props.tier);
+  const [pickRatio, setPickRatio] = useState<MvRatio>('9:16');
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [hasConsent, setHasConsent] = useState(false);
 
   useEffect(() => {
+    setMv(null);
+    if (!mvId) return;
     let stop = false;
     const tick = async () => {
       try {
@@ -67,8 +88,17 @@ export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const take = order.takes[mv?.take ?? takeIdx] ?? order.takes[0];
-  const ratio: MvRatio = mv?.ratio ?? '9:16';
-  const scenes = mv?.scenes ?? [];
+  const ratio: MvRatio = mv?.ratio ?? pickRatio;
+  const isSetup = !mvId;
+  // Truoc khi dung: hien cac canh du kien de khach xem truoc phu de tren bai
+  const planned = useMemo<MvScene[]>(
+    () =>
+      planScenes(order.lyrics ?? [], dur || take.durationSec || 180, MV_TIERS[tier].mode).map(p => ({
+        ...p, imageUrl: null, clipUrl: null, status: 'pending' as const,
+      })),
+    [order.lyrics, dur, take.durationSec, tier],
+  );
+  const scenes = isSetup ? planned : (mv?.scenes ?? []);
   const isReady = mv?.status === 'ready';
   const isFailed = mv?.status === 'failed';
   const [W, H] = ratio === '9:16' ? [720, 1280] : [1280, 720];
@@ -193,9 +223,26 @@ export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
           ? 'File MV đã sẵn sàng.'
           : isReady
             ? `MV đã xong. Bấm ▶ để xem · ${mmss(now)} / ${mmss(total)}`
-            : mv
-              ? `Đang dựng: ${done}/${scenes.length} cảnh. Có thể xem thử các cảnh đã xong.`
-              : 'Đang tải MV…';
+            : isSetup
+              ? 'Chọn mức video rồi bấm “Dựng MV”. Bấm ▶ để nghe bài kèm phụ đề.'
+              : mv
+                ? `Đang dựng: ${done}/${scenes.length} cảnh. Có thể xem thử các cảnh đã xong.`
+                : 'Đang tải MV…';
+
+  const pickPhotos = (files: FileList | null) => {
+    const ok = Array.from(files ?? []).filter(f => f.size <= MAX_PHOTO_BYTES).slice(0, MAX_PHOTOS);
+    setPhotos(ok);
+    if (!ok.length) setHasConsent(false);
+  };
+  const durationSec = dur || take.durationSec || 0;
+  const canCreate =
+    !!durationSec && (photos.length === 0 || hasConsent) && (MOCK || !!props.passcode.trim()) && !props.isCreating && !isBusy;
+  const create = () => {
+    audioRef.current?.pause();
+    setIsPlaying(false);
+    props.onCreate({mode: MV_TIERS[tier].mode, ratio: pickRatio, takeIdx, durationSec, photos}, tier);
+  };
+  const priceOf = (k: MvTier) => (props.hasFilm && k === 'amateur' ? 'Đã có trong gói' : `+${vnd(MV_TIERS[k].price)}`);
 
   return (
     <StudioShell onHome={onHome} onBack={onBack} tab="mv" onSong={onBack}>
@@ -223,14 +270,59 @@ export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
                 <span>Bản {(mv?.take ?? takeIdx) + 1}{total ? ` · ${mmss(total)}` : ''}</span>
               </div>
               <button type="button" className="btn primary sm" disabled={isBusy} onClick={() => void toggle()}>
-                {isPlaying ? '⏸ DỪNG' : '▶ XEM MV'}
+                {isPlaying ? '⏸ DỪNG' : isSetup ? '▶ NGHE THỬ' : '▶ XEM MV'}
               </button>
             </div>
+            {isSetup && (
+              <>
+                <div className="upl">
+                  <label htmlFor="mvPhotos">+ Nhập ảnh nhân vật</label>
+                  <input type="file" id="mvPhotos" accept="image/jpeg,image/png,image/webp" multiple onChange={e => pickPhotos(e.target.files)} />
+                  <span>{photos.length ? photos.map(f => f.name).join(', ') : `Chưa có ảnh, AI tự tạo nhân vật. Tối đa ${MAX_PHOTOS} ảnh rõ mặt, dưới 10MB.`}</span>
+                </div>
+                {photos.length > 0 && (
+                  <label className="consent">
+                    <input type="checkbox" checked={hasConsent} onChange={e => setHasConsent(e.target.checked)} />
+                    <span>Tôi có quyền dùng các ảnh này và người trong ảnh đồng ý để AI dựng hình từ ảnh.</span>
+                  </label>
+                )}
+                <div className="f">
+                  <label htmlFor="mvRatio">Khung hình</label>
+                  <select id="mvRatio" value={pickRatio} onChange={e => setPickRatio(e.target.value as MvRatio)}>
+                    <option value="9:16">Dọc 9:16 (TikTok, Reels)</option>
+                    <option value="16:9">Ngang 16:9 (YouTube)</option>
+                  </select>
+                </div>
+                <div className="f">
+                  <label>Chất lượng video <small>chọn một mức</small></label>
+                  <div className="tiers" role="radiogroup" aria-label="Chất lượng video">
+                    {(Object.keys(MV_TIERS) as MvTier[]).map(k => (
+                      <label key={k} className={k === tier ? 'tier on' : 'tier'}>
+                        <input type="radio" name="mvTier" checked={k === tier} onChange={() => setTier(k)} />
+                        <span><b>{MV_TIERS[k].label}</b><span className="tm">{MV_TIERS[k].description}</span></span>
+                        <span className={props.hasFilm && k === 'amateur' ? 'pr inc' : 'pr'}>{priceOf(k)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="est">
+                  <b>{planned.length} cảnh</b>, {planned.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
+                  {estimateCostUsd(planned).toFixed(2)} · dựng khoảng 5 đến 10 phút
+                </div>
+                {!MOCK && (
+                  <div className="f">
+                    <label htmlFor="mvPass">Mã truy cập bản chạy thử</label>
+                    <input id="mvPass" type="password" value={props.passcode} onChange={e => props.onPasscode(e.target.value)} autoComplete="off" />
+                  </div>
+                )}
+                {props.createError && <p className="err" role="alert">{props.createError}</p>}
+              </>
+            )}
             {mv && (
               <>
                 <dl className="facts">
-                  <dt>Kiểu MV</dt>
-                  <dd>{MV_MODES[mv.mode].label}</dd>
+                  <dt>Mức video</dt>
+                  <dd>{MV_TIERS[props.tier].label}</dd>
                   <dt>Khung hình</dt>
                   <dd>{mv.ratio === '9:16' ? 'Dọc 9:16' : 'Ngang 16:9'}</dd>
                   <dt>Số cảnh</dt>
@@ -254,10 +346,15 @@ export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
             )}
             {isFailed && <p className="err" role="alert">{mv?.error ?? 'Lỗi không xác định.'}</p>}
             <div className="actions">
+              {isSetup && (
+                <button className="btn primary grow" disabled={!canCreate} onClick={create}>
+                  {props.isCreating ? 'Đang gửi…' : '▶ Dựng MV'}
+                </button>
+              )}
               {exportState === 'recording' ? (
                 <button className="btn outline wide" onClick={cancelExport}>⏹ Huỷ xuất ({mmss(now)} / {mmss(total)})</button>
               ) : (
-                <button className="btn primary wide" disabled={!isReady || isBusy} onClick={() => void exportVideo()}>
+                <button className={isSetup ? 'btn outline' : 'btn primary wide'} disabled={!isReady || isBusy} onClick={() => void exportVideo()}>
                   {exportState === 'loading' ? 'Đang tải cảnh…' : 'Tạo file MV ↓'}
                 </button>
               )}
@@ -318,7 +415,9 @@ export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
             <p className="lab">KỊCH BẢN HÌNH</p>
             <h2>Storyboard</h2>
           </div>
-          <span className="note">Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.</span>
+          <span className="note">
+            {isSetup ? 'Cảnh dự kiến. Bấm “Dựng MV” để AI vẽ ảnh và quay clip cho từng cảnh.' : 'Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.'}
+          </span>
         </div>
         <div className="board">
           {scenes.map(s => {

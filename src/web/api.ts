@@ -36,6 +36,20 @@ export async function getOrder(id: string): Promise<OrderView> {
   return r.json();
 }
 
+/** Dat thu ban acoustic (sau khi da thanh toan). Tra ve don moi nhat. */
+export async function requestAcoustic(id: string, passcode: string): Promise<OrderView> {
+  if (MOCK) {
+    mockAcoustic.set(id, Date.now());
+    return mockView(id);
+  }
+  const r = await fetch(`/api/orders/${id}/acoustic`, {method: 'POST', headers: {'X-Passcode': passcode}});
+  if (!r.ok) throw new Error(((await r.json().catch(() => null)) as {error?: string} | null)?.error ?? `Lỗi ${r.status}`);
+  return r.json();
+}
+
+const mockAcoustic = new Map<string, number>();
+const MOCK_ACOUSTIC_MS = 6000;
+
 function mockView(id: string): OrderView {
   // Link ?mock=1&order=<bat ky> mo thang don da xong (tien demo)
   if (!mockOrders.has(id)) mockOrders.set(id, {answers: {...EMPTY_ANSWERS, name: 'Lan'}, start: 0});
@@ -52,6 +66,8 @@ function mockView(id: string): OrderView {
     t -= s.ms;
   }
   const name = o.answers.name.trim() || 'Lan';
+  const acAt = mockAcoustic.get(id);
+  const acReady = acAt !== undefined && Date.now() - acAt >= MOCK_ACOUSTIC_MS;
   return {
     id,
     writer: o.answers.writer,
@@ -70,6 +86,11 @@ function mockView(id: string): OrderView {
           {audioUrl: '/mock/take2.mp3', coverUrl: '/mock/cover2.jpg', durationSec: 215},
         ]
       : [],
+    // Gia lap: dung lai file ban 1 lam ban acoustic
+    acoustic:
+      acAt === undefined
+        ? null
+        : {status: acReady ? 'ready' : 'running', take: acReady ? {audioUrl: '/mock/take1.mp3', coverUrl: '/mock/cover1.jpg', durationSec: 192} : null, error: null},
   };
 }
 
