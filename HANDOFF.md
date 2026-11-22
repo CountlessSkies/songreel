@@ -3,7 +3,7 @@
 Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI viết lời tiếng Việt → Suno hát 2 bản → nghe thử 40s → thanh toán (giả lập) mở bản đầy đủ → tuỳ chọn dựng MV.
 
 - **Trang chủ:** `src/web/Home.tsx` + `home.css`, lấy theo `ref/solsongs-v1.6.1.html` (logo sóng âm, lưới dịp tặng 3D ở `homeOccArt.ts`, giai điệu mẫu ở `homeBed.ts`). `?start=1` vào thẳng bảng hỏi.
-- **Deploy gần nhất:** 2026-11-19, version `3d5585aa`, đã chạy migration `0002_mvs.sql` trên D1 remote.
+- **Deploy gần nhất:** 2026-11-22, version `e33fa2ed` (trang chủ v1.6.1). Đã chạy migration `0002_mvs.sql` trên D1 remote.
 
 - **URL:** https://songreel-poc.quann111.workers.dev
 - **Benchmark viết lời:** https://songreel-poc.quann111.workers.dev/bench/
