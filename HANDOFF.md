@@ -117,11 +117,54 @@ CLOUDFLARE_ACCOUNT_ID=6a959e87aaf889d75de1f587de9f89cb npm run deploy
 - `e2e_mv.py <base> <order-id> [amateur|pro|cinematic] [9:16|16:9]`: dựng 1 MV thật cho 1 đơn đã xong tới bước duyệt storyboard (~$2, tốn tiền thật).
 - `align_check.ts`: kiểm tra căn lời và chia shot trên 1 kết quả Whisper.
 
+## Việc tiếp theo: tách giọng trước Whisper (làm ngày 2026-11-24)
+
+**Vấn đề.** Bước `timing` cho Whisper nghe bản phối đầy đủ (kèm lời làm gợi ý) thì lúc được lúc không:
+- Bài "Mẹ Ơi, Mừng Sinh Nhật" (đơn local `9a7f9b2a1f8a`): đo được 17/19 câu.
+- Bài "Xa Nhau Vẫn Chung Trời" (đơn live `d4bd30aec86b`): Whisper bịa chữ ("Hãy subscribe cho kênh…"), căn lời được 0 câu nên dùng mốc ước lượng. MV vẫn ra, nhưng phụ đề và cảnh có thể lệch nhạc vài giây.
+- Khi nghe **giọng hát đã tách** (kèm lời gợi ý), Whisper ra gần như đúng hết từng câu, sai số dưới 1 giây (đã thử ngày 2026-11-23 trên bài "Mẹ Ơi").
+
+**Kế hoạch** (sửa `src/worker/mvStory.ts` bước `timing`, thêm 1 file xử lý zip/WAV):
+1. Gửi task `mureka-ai/stem-song` (có trong registry; tham số `url` = link nhạc upload qua `/media/upload/binary`, `model: 'audio-separation-1'`).
+   - Đo thật: 43 giây, $0.06.
+   - Kết quả là 1 file **zip 164 MB** chứa `vocals.wav`, `bass.wav`, `drums.wav`, `instrumental.wav`, `other.wav`, `song.wav`, `song.mp3`. Mỗi WAV khoảng 34 MB, nén deflate.
+   - Bước `timing` thành nhiều lượt: lượt 1 gửi task, các lượt sau hỏi trạng thái. Lưu `stemTask`, `stemTries` vào `story`.
+2. **Không tải cả zip** (Worker giới hạn 128 MB bộ nhớ). Dùng HTTP Range:
+   - Đọc khoảng 64 KB cuối file để lấy End of Central Directory và central directory.
+   - Tìm mục `vocals.wav` (offset local header, kích thước nén khoảng 24 MB, method 8 = deflate).
+   - Range tải đúng đoạn đó: đọc 30 byte local header để lấy độ dài tên và extra, rồi tới phần dữ liệu nén.
+   - Giải nén bằng `DecompressionStream('deflate-raw')` (có sẵn trong Worker).
+   - Chưa kiểm tra server COS của RunningHub có nhận Range không; nếu không nhận thì bỏ qua bước này.
+3. `vocals.wav` khoảng 34 MB, vượt giới hạn 25 MB của OpenAI. Cắt phần PCM làm 2 nửa, mỗi nửa ghép header WAV mới (chỉ copy byte, không resample), gửi Whisper 2 lần, cộng offset thời gian cho nửa sau. Giữ lời bài làm `prompt` cho cả 2 nửa.
+4. Ghép các từ của 2 nửa rồi đưa vào `alignLyrics` như hiện tại.
+5. **Đường lùi:** tách giọng lỗi, hết thời gian, hoặc không đọc được zip thì quay về cách hiện tại (Whisper nghe bản phối → không khớp thì mốc ước lượng).
+6. **Rủi ro CPU:** giải nén 24 MB có thể vượt giới hạn CPU nếu tài khoản Cloudflare ở gói miễn phí (10 ms/request). Chưa biết tài khoản đang ở gói nào.
+   - Lỗi vượt CPU làm request chết, không bắt được bằng try/catch.
+   - Vì vậy phải lưu `stemProcessTries` vào DB **trước** khi xử lý nặng; nếu đã thử 2 lần thì đi thẳng đường lùi.
+7. **Kiểm tra:**
+   - Chạy lại đơn `d4bd30aec86b` (hoặc `9a7f9b2a1f8a` ở local) bằng `python tools/e2e_mv.py <base> <order> amateur 9:16`, dừng ở bước duyệt, khoảng $2.
+   - Xem `story.timing` có ra `measured` không, và `story.timingNote`.
+   - Kiểm tra căn lời trên file Whisper tải về bằng `tools/align_check.ts`.
+
+**Đã loại:**
+- Whisper của Cloudflare Workers AI (`@cf/openai/whisper`, `whisper-large-v3-turbo`): nghe bài hát bịa chữ nặng, kể cả khi đã tách giọng.
+- `rhart-audio/extract-vocal` của RunningHub: trả về gọn hơn nhưng không có trong registry, và tài liệu chính thức ghi chỉ nhận video MP4/MOV.
+
+## Kết quả test thật (2026-11-23)
+
+- **Amateur** trên live (MV `2602ffa124fb`, bài 2:20, 9:16): xong sau 10,6 phút, tốn $5.62.
+  - Storyboard: 5,3 phút, $1.62.
+  - 20 clip Veo 3.1 fast: 5,4 phút, $4.00 ($0.20/clip). 20/20 clip đạt, mỗi clip 8 giây 720×1280; khung đầu và khung cuối của clip khớp ảnh đã duyệt.
+  - Mốc lời: ước lượng (xem mục trên).
+- **Pro** (Seedance 2.0 mini): storyboard chạy thật ở local, 5 phút, $1.86. **Bước quay clip chưa chạy thật trong pipeline.**
+- **Cinematic**: giống Pro, chưa chạy thật.
+- 2 lần anh Hà thử Pro lúc 01:09 và 01:36 đều lỗi `RunningHub LLM 524`. Đã sửa bằng cách gọi LLM dạng stream (version `d6ce6339`).
+
 ## Chưa làm / chưa kiểm chứng
 
 - Thanh toán thật (Viết Quân làm riêng), gửi email/Zalo. Gói tạo phim chưa trừ vào giá MV thật, chỉ đổi nhãn "Đã có trong gói".
 - MV:
-  - Mốc thời gian lời là ước lượng, nên chữ có thể lệch nhạc vài giây.
+  - Mốc lời có khi phải dùng ước lượng (xem "Việc tiếp theo"), lúc đó chữ có thể lệch nhạc vài giây.
   - Chưa ghép phía server (4K, xuất nhanh), vì Worker không chạy được ffmpeg, cần Container.
   - Chưa thử xuất trên điện thoại.
   - Mở MV không cần mã. Chỉ tạo MV mới cần mã.
