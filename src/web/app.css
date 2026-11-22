@@ -144,4 +144,5 @@ html, body, #root { height: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .hero-notes span, .vinyl, .cover.is-playing { animation: none; }
 }
-body[data-page="home"] .theme-switcher { display: none; }
+/* Nut doi theme chi con y nghia o man MV (Astryx) */
+body:not([data-page="mv"]) .theme-switcher { display: none; }

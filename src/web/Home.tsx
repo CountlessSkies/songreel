@@ -1,8 +1,9 @@
 // Trang chu Sol Songs, dung theo ref/solsongs-v1.6.1.html (thiet ke cua sep). Noi dung va CSS giu nguyen ban goc,
 // chi doi phan tuong tac: bam "Tao bai hat" / chon dip thi mo bang hoi voi dip va nguoi nhan dien san.
-import {useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent} from 'react';
+import {useEffect, useRef, useState, type CSSProperties, type PointerEvent} from 'react';
 import {BEDS, instrumental} from './homeBed';
 import {occArt} from './homeOccArt';
+import {WaveMark} from './StudioShell';
 import './home.css';
 
 export type StartPrefill = {occ?: string; rel?: string};
@@ -85,35 +86,13 @@ const Trust = ({center}: {center?: boolean}) => (
   </p>
 );
 
-/** Cot song am: 11 vach tren (mat troi) va bong phan chieu ben duoi. */
-const BARS: [number, number][] = [
-  [108.6, 148.1], [85.6, 157.7], [73.3, 162.9], [65.8, 166.1], [61.6, 167.8], [60.3, 168.4],
-  [61.6, 167.8], [65.8, 166.1], [73.3, 162.9], [85.6, 157.7], [108.6, 148.1],
-];
-
-function Logo({light}: {light?: boolean}) {
-  const gid = useId();
-  return (
-    <a className={light ? 'h-logo light' : 'h-logo'} href="#top" onClick={toTop}>
-      <svg className="lmark" xmlns="http://www.w3.org/2000/svg" viewBox="14 46 172 132" width="38" height="29" aria-hidden="true">
-        <defs>
-          <linearGradient id={gid} x1="0" y1="54" x2="0" y2="132" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#FFC63D" />
-            <stop offset="1" stopColor="#F0506E" />
-          </linearGradient>
-        </defs>
-        <g stroke={`url(#${gid})`} strokeWidth="9.5" strokeLinecap="round">
-          {BARS.map(([top], i) => <line key={i} x1={27.5 + i * 14.5} y1={top} x2={27.5 + i * 14.5} y2="131" />)}
-        </g>
-        <g stroke="#7A5AF8" strokeOpacity=".55" strokeWidth="9.5" strokeLinecap="round">
-          {BARS.map(([, bottom], i) => <line key={i} x1={27.5 + i * 14.5} y1="141" x2={27.5 + i * 14.5} y2={bottom} />)}
-        </g>
-      </svg>
-      <span className="wm">Sol Songs</span>
-      {!light && <span className="wtag">Sound you can see</span>}
-    </a>
-  );
-}
+const Logo = ({light}: {light?: boolean}) => (
+  <a className={light ? 'h-logo light' : 'h-logo'} href="#top" onClick={toTop}>
+    <WaveMark width={38} height={29} />
+    <span className="wm">Sol Songs</span>
+    {!light && <span className="wtag">Sound you can see</span>}
+  </a>
+);
 
 /** Luoi dip tang co chieu sau: ca luoi nghieng theo chuot, moi khung co thi sai 3 lop. */
 function OccGrid({onPick}: {onPick: (p: StartPrefill) => void}) {

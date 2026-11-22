@@ -1,35 +1,21 @@
+// Man ket qua, dung theo ref/solsongs-v1.6.1.html: trinh phat 2 ban va loi ben trai, mo khoa va MV ben phai.
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {CheckboxInput} from '@astryxdesign/core/CheckboxInput';
-import {FileInput} from '@astryxdesign/core/FileInput';
-import {RadioList, RadioListItem} from '@astryxdesign/core/RadioList';
+import {WRITERS, type OrderView} from '../shared/catalog';
 import {estimateCostUsd, MV_MODES, planScenes, type MvMode, type MvRatio} from '../shared/mv';
-import {TextInput} from '@astryxdesign/core/TextInput';
 import {MOCK} from './api';
 import type {MvRequest} from './mvApi';
-import {Badge} from '@astryxdesign/core/Badge';
-import {Banner} from '@astryxdesign/core/Banner';
-import {Button} from '@astryxdesign/core/Button';
-import {Card} from '@astryxdesign/core/Card';
-import {CheckboxList, CheckboxListItem} from '@astryxdesign/core/CheckboxList';
-import {Divider} from '@astryxdesign/core/Divider';
-import {Grid} from '@astryxdesign/core/Grid';
-import {Layout, LayoutContent} from '@astryxdesign/core/Layout';
-import {ProgressBar} from '@astryxdesign/core/ProgressBar';
-import {HStack, StackItem, VStack} from '@astryxdesign/core/Stack';
-import {Heading, Text} from '@astryxdesign/core/Text';
-import {ToggleButton, ToggleButtonGroup} from '@astryxdesign/core/ToggleButton';
-import {useMediaQuery} from '@astryxdesign/core/hooks';
-import {WRITERS, type OrderView} from '../shared/catalog';
+import {StudioShell} from './StudioShell';
 
 const PREVIEW_SEC = 40;
 const FADE_SEC = 2;
 const BASE_PRICE = 149_000;
-const ADDONS = [
-  {id: 'acoustic', label: 'Bản acoustic', price: 49_000, description: 'Thêm một bản mộc chỉ guitar và giọng hát.'},
-];
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const RATIOS: [MvRatio, string][] = [['9:16', 'Dọc 9:16'], ['16:9', 'Ngang 16:9']];
 
 const vnd = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
 /** Diem bat dau nghe thu. Chua co moc dieu khuc tu Suno nen lay khoang 1/4 bai. */
 const previewStart = (dur: number) => Math.max(0, Math.min(dur * 0.25, dur - PREVIEW_SEC));
@@ -37,6 +23,7 @@ const previewStart = (dur: number) => Math.max(0, Math.min(dur * 0.25, dur - PRE
 export function Result({
   order,
   onNew,
+  onHome,
   onMakeMv,
   isMvStarting,
   passcode,
@@ -44,23 +31,22 @@ export function Result({
 }: {
   order: OrderView;
   onNew: () => void;
+  onHome: () => void;
   onMakeMv: (req: MvRequest) => void;
   isMvStarting: boolean;
   passcode: string;
   onPasscode: (v: string) => void;
 }) {
+  const [takeIdx, setTakeIdx] = useState(0);
+  const [playing, setPlaying] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [isPaying, setIsPaying] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [mvMode, setMvMode] = useState<MvMode>('hybrid');
   const [mvRatio, setMvRatio] = useState<MvRatio>('9:16');
   const [photos, setPhotos] = useState<File[]>([]);
   const [hasConsent, setHasConsent] = useState(false);
-  const isNarrow = useMediaQuery('(max-width: 800px)');
-  const [takeIdx, setTakeIdx] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [addons, setAddons] = useState<string[]>([]);
-  const [isPaying, setIsPaying] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
 
   const take = order.takes[takeIdx];
   // Suno khong tra do dai bai: doc tu file mp3
@@ -72,278 +58,236 @@ export function Result({
     a.onloadedmetadata = () => setMeasured(m => ({...m, [take.audioUrl]: a.duration}));
     a.src = take.audioUrl;
   }, [take.audioUrl, measured]);
-  const durationSec = measured[take.audioUrl] ?? take.durationSec ?? null;
-  const mvPlan = useMemo(
-    () => planScenes(order.lyrics ?? [], durationSec ?? 180, mvMode),
-    [order.lyrics, durationSec, mvMode],
-  );
-  const total = BASE_PRICE + ADDONS.filter(x => addons.includes(x.id)).reduce((s, x) => s + x.price, 0);
+  const durationOf = (i: number) => measured[order.takes[i].audioUrl] ?? order.takes[i].durationSec ?? null;
+  const durationSec = durationOf(takeIdx);
+  const mvPlan = useMemo(() => planScenes(order.lyrics ?? [], durationSec ?? 180, mvMode), [order.lyrics, durationSec, mvMode]);
 
-  // Doi ban thi dung phat va tua ve dau doan nghe thu
-  useEffect(() => {
-    setIsPlaying(false);
-    setElapsed(0);
-  }, [takeIdx]);
-
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el || isUnlocked) return;
-    const onTime = () => {
-      const start = previewStart(el.duration || 0);
-      const t = el.currentTime - start;
-      setElapsed(Math.max(0, t));
-      const fadeIn = Math.min(1, t / FADE_SEC);
-      const fadeOut = Math.min(1, (PREVIEW_SEC - t) / FADE_SEC);
-      el.volume = Math.max(0, Math.min(fadeIn, fadeOut, 1));
-      if (t >= PREVIEW_SEC) {
-        el.pause();
-        el.currentTime = start;
-        setElapsed(0);
-        setIsPlaying(false);
-      }
-    };
-    el.addEventListener('timeupdate', onTime);
-    return () => el.removeEventListener('timeupdate', onTime);
-  }, [isUnlocked, takeIdx]);
-
-  const togglePreview = () => {
-    const el = audioRef.current;
-    if (!el) return;
-    if (isPlaying) {
+  const stop = () => {
+    const el = audio.current;
+    if (el) {
+      el.ontimeupdate = null;
+      el.onended = null;
+      el.onloadedmetadata = null;
       el.pause();
-      setIsPlaying(false);
+    }
+    audio.current = null;
+    setPlaying(null);
+    setProgress(0);
+  };
+  useEffect(() => () => audio.current?.pause(), []);
+
+  /** Chua mo khoa: phat 40 giay co mo dan dau cuoi. Da mo khoa: phat tron bai. */
+  const play = (i: number) => {
+    if (playing === i) {
+      stop();
       return;
     }
-    const start = previewStart(el.duration || 0);
-    if (el.currentTime < start || el.currentTime >= start + PREVIEW_SEC) el.currentTime = start;
-    el.volume = 0;
-    void el.play();
-    setIsPlaying(true);
+    stop();
+    const el = new Audio(order.takes[i].audioUrl);
+    audio.current = el;
+    const isFull = isUnlocked;
+    let start = 0;
+    let len = 0;
+    el.onloadedmetadata = () => {
+      const dur = el.duration || 0;
+      start = isFull ? 0 : previewStart(dur);
+      len = isFull ? dur : Math.min(PREVIEW_SEC, dur);
+      if (start > 0) el.currentTime = start;
+    };
+    el.ontimeupdate = () => {
+      if (audio.current !== el || !len) return;
+      const t = el.currentTime - start;
+      setProgress(clamp01(t / len));
+      if (isFull) return;
+      el.volume = clamp01(Math.min(t / FADE_SEC, (len - t) / FADE_SEC));
+      if (t >= len) stop();
+    };
+    el.onended = () => {
+      if (audio.current === el) stop();
+    };
+    el.volume = isFull ? 1 : 0;
+    void el.play().catch(() => {
+      if (audio.current === el) stop();
+    });
+    setPlaying(i);
   };
 
   const pay = () => {
+    stop();
     setIsPaying(true);
-    audioRef.current?.pause();
-    setIsPlaying(false);
     window.setTimeout(() => {
       setIsPaying(false);
       setIsUnlocked(true);
     }, 900);
   };
 
+  const pickPhotos = (files: FileList | null) => {
+    const ok = Array.from(files ?? []).filter(f => f.size <= MAX_PHOTO_BYTES).slice(0, MAX_PHOTOS);
+    setPhotos(ok);
+    if (!ok.length) setHasConsent(false);
+  };
+
   // Khi chua mo khoa: chi hien ro tu dau den het dieu khuc dau tien
   const firstChorus = order.lyrics?.findIndex(s => s.kind === 'chorus') ?? -1;
-
-  const player = (
-    <Card padding={5}>
-      <VStack gap={4}>
-        <HStack gap={3} vAlign="center" hAlign="between">
-          <div className="chips">
-          <ToggleButtonGroup
-            label="Chọn bản"
-            type="single"
-            value={String(takeIdx)}
-            onChange={v => v != null && setTakeIdx(Number(v))}>
-            {order.takes.map((_, i) => (
-              <ToggleButton key={i} value={String(i)} label={`🎧 Bản ${i + 1}`} />
-            ))}
-          </ToggleButtonGroup>
-          </div>
-          {takeIdx === 0 && <Badge variant="success" label="⭐ Gợi ý" />}
-        </HStack>
-
-        {take.coverUrl && <img className={isPlaying ? 'cover is-playing' : 'cover'} src={take.coverUrl} alt={`Ảnh bìa bản ${takeIdx + 1}`} />}
-
-        <VStack gap={1}>
-          <Heading level={2}>{order.title ?? 'Bài hát của bạn'}</Heading>
-          <Text type="supporting" color="secondary">
-            Tặng {order.recipient}
-            {take.durationSec ? ` · ${mmss(take.durationSec)}` : ''}
-          </Text>
-        </VStack>
-
-        {isUnlocked ? (
-          <VStack gap={3}>
-            <audio key={take.audioUrl} src={take.audioUrl} controls style={{width: '100%'}} />
-            <HStack gap={2}>
-              {order.takes.map((t, i) => (
-                <Button key={i} label={`⬇ Tải bản ${i + 1}`} variant="secondary" href={t.audioUrl} target="_blank" />
-              ))}
-            </HStack>
-          </VStack>
-        ) : (
-          <VStack gap={2}>
-            <audio key={take.audioUrl} ref={audioRef} src={take.audioUrl} preload="metadata" />
-            <HStack gap={3} vAlign="center">
-              <Button label={isPlaying ? '⏸ Tạm dừng' : '▶ Nghe thử 40 giây'} variant="primary" onClick={togglePreview} />
-              <StackItem size="fill">
-                <ProgressBar label="Tiến độ nghe thử" isLabelHidden value={elapsed} max={PREVIEW_SEC} />
-              </StackItem>
-              <Text type="supporting" color="secondary">
-                {mmss(elapsed)} / {mmss(PREVIEW_SEC)}
-              </Text>
-            </HStack>
-          </VStack>
-        )}
-      </VStack>
-    </Card>
-  );
-
-  const lyrics = (
-    <Card padding={5} variant="pink">
-      <VStack gap={4}>
-        <HStack gap={2} vAlign="center" hAlign="between">
-          <Heading level={3}>📝 Lời bài hát</Heading>
-          {order.critic && <Badge variant={order.critic.issues.length ? 'warning' : 'success'} label={`Chấm ${order.critic.score}/100`} />}
-        </HStack>
-        <Text type="supporting" color="secondary">
-          ✍️ {WRITERS[order.writer].label} · {order.round} lần viết
-          {order.critic && order.critic.issues.length + order.critic.notes.length > 0
-            ? ` · ${[...order.critic.issues, ...order.critic.notes].join('; ')}`
-            : ''}
-        </Text>
-        {order.lyrics?.map((sec, si) => {
-          const locked = !isUnlocked && firstChorus >= 0 && si > firstChorus;
-          return (
-            <VStack key={si} gap={1}>
-              <Text type="label" color="secondary">{sec.name}</Text>
-              <div className={locked ? 'lyrics-locked' : undefined} aria-hidden={locked || undefined}>
-                {sec.lines.map((l, li) => (
-                  <p key={li} className={sec.kind === 'chorus' ? 'lyrics-line lyrics-chorus' : 'lyrics-line'}>
-                    <Text type="body">{l}</Text>
-                  </p>
-                ))}
-              </div>
-            </VStack>
-          );
-        })}
-      </VStack>
-    </Card>
-  );
-
-  const paywall = isUnlocked ? (
-    <Banner status="success" title="🎉 Đã mở khoá bản đầy đủ" collapsible={false}>
-      <Text type="supporting">Thanh toán giả lập. Bản thật sẽ gửi email kèm link nghe riêng.</Text>
-    </Banner>
-  ) : (
-    <Card padding={5} variant="yellow">
-      <VStack gap={4}>
-        <VStack gap={1}>
-          <Heading level={3}>🎁 Nhận bản đầy đủ</Heading>
-          <Text type="supporting" color="secondary">
-            Cả 2 bản, file mp3 chất lượng cao, lời bài hát và trang nghe riêng để gửi tặng.
-          </Text>
-        </VStack>
-        <CheckboxList label="Thêm" value={addons} onChange={setAddons}>
-          {ADDONS.map(x => (
-            <CheckboxListItem key={x.id} value={x.id} label={`${x.label} +${vnd(x.price)}`} description={x.description} />
-          ))}
-        </CheckboxList>
-        <Divider />
-        <HStack gap={3} vAlign="center" hAlign="between">
-          <Text type="label">Tổng</Text>
-          <span className="price">{vnd(total)}</span>
-        </HStack>
-        <Button label="💳 Thanh toán (giả lập)" variant="primary" width="100%" isLoading={isPaying} onClick={pay} />
-      </VStack>
-    </Card>
-  );
-
-  const mvCard = (
-    <Card padding={5} variant="blue">
-      <VStack gap={4}>
-        <VStack gap={1}>
-          <Heading level={3}>🎬 Làm MV cho bài hát</Heading>
-          <Text type="supporting" color="secondary">
-            AI vẽ cảnh theo lời bài, quay thành clip và chạy chữ karaoke. Dùng {`"Bản ${takeIdx + 1}"`} đang chọn.
-          </Text>
-        </VStack>
-        <RadioList label="Kiểu MV" value={mvMode} onChange={v => setMvMode(v as MvMode)}>
-          {(Object.keys(MV_MODES) as MvMode[]).map(k => (
-            <RadioListItem key={k} value={k} label={`${MV_MODES[k].label} +${vnd(MV_MODES[k].price)}`} description={MV_MODES[k].description} />
-          ))}
-        </RadioList>
-        <div className="chips">
-          <ToggleButtonGroup label="Khổ video" type="single" value={mvRatio} onChange={v => v && setMvRatio(v as MvRatio)}>
-            <ToggleButton value="9:16" label="📱 Dọc 9:16" />
-            <ToggleButton value="16:9" label="🖥️ Ngang 16:9" />
-          </ToggleButtonGroup>
-        </div>
-        <FileInput
-          label="Ảnh người nhận"
-          description="Tối đa 3 ảnh rõ mặt, mỗi ảnh dưới 10MB. AI dùng để vẽ nhân vật giống người thật."
-          isOptional
-          isMultiple
-          mode="dropzone"
-          accept="image/*"
-          maxFiles={3}
-          maxSize={10 * 1024 * 1024}
-          value={photos}
-          onChange={f => setPhotos(Array.isArray(f) ? f : f ? [f] : [])}
-        />
-        {photos.length > 0 && (
-          <CheckboxInput
-            label="Tôi có quyền dùng các ảnh này và đồng ý cho AI xử lý để làm MV."
-            value={hasConsent}
-            onChange={setHasConsent}
-          />
-        )}
-        <Text type="supporting" color="secondary">
-          🧪 Bản chạy thử: {mvPlan.length} cảnh, {mvPlan.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
-          {estimateCostUsd(mvPlan).toFixed(2)} · dựng khoảng 5–10 phút
-        </Text>
-        {!MOCK && (
-          <TextInput
-            label="Mã truy cập bản chạy thử"
-            type="password"
-            value={passcode}
-            onChange={onPasscode}
-            isRequired
-          />
-        )}
-        <Button
-          label="🎬 Tạo MV"
-          variant="primary"
-          width="100%"
-          isLoading={isMvStarting}
-          isDisabled={(photos.length > 0 && !hasConsent) || !durationSec || (!MOCK && !passcode.trim())}
-          onClick={() => durationSec && onMakeMv({mode: mvMode, ratio: mvRatio, takeIdx, durationSec, photos})}
-        />
-      </VStack>
-    </Card>
-  );
+  const canMakeMv = !!durationSec && (photos.length === 0 || hasConsent) && (MOCK || !!passcode.trim()) && !isMvStarting;
+  const review = [
+    `Lời: ${WRITERS[order.writer].label}`,
+    `${order.round} lần viết`,
+    ...(order.critic ? [`Điểm lời ${order.critic.score}/100`, ...order.critic.issues.map(x => `Lỗi: ${x}`), ...order.critic.notes.map(x => `Gợi ý: ${x}`)] : []),
+  ];
 
   return (
-    <Layout
-      height="fill"
-      contentWidth={1040}
-      padding={isNarrow ? 4 : 5}
-      content={
-        <LayoutContent>
-          <VStack gap={5}>
-            <HStack gap={3} vAlign="center" hAlign="between">
-              <StackItem size="fill">
-                <div className="hero">
-                  <div className="hero-notes" aria-hidden="true"><span>🎉</span><span>🎵</span><span>🎁</span></div>
-                  <div className="hero-logo">SolSongs</div>
-                  <div className="hero-sub">Bài hát cho {order.recipient} đã sẵn sàng!</div>
+    <StudioShell onHome={onHome}>
+      <section className="step on" data-step="result">
+        <div className="r-hero">
+          <div className="res-head">
+            <span className="badge dark">Mã bài {order.id.slice(-6).toUpperCase()}</span>
+            <span className="badge">{isUnlocked ? '✓ Bản đầy đủ đã mở khoá' : '🎁 Bản nghe thử miễn phí · 40 giây'}</span>
+            <h1 className="q">Bài hát của bạn đã sẵn sàng.</h1>
+            <p className="sub">{isUnlocked ? 'Cảm ơn bạn! Đây là bài hát trọn vẹn.' : `Nghe thử ${order.takes.length} bản và chọn bản bạn thích nhất.`}</p>
+          </div>
+        </div>
+
+        <div className="r-grid">
+          <div className="r-main">
+            <div className="player">
+              <p className="pk">♪ BÀI HÁT CỦA BẠN</p>
+              <h3>{order.title ?? 'Bài hát của bạn'}</h3>
+              <div className="for">Dành tặng {order.recipient}</div>
+              <div className="takes">
+                {order.takes.map((t, i) => {
+                  const dur = durationOf(i);
+                  return (
+                    <div key={t.audioUrl} className={i === takeIdx ? 'take sel' : 'take'} onClick={() => setTakeIdx(i)}>
+                      <div className="row">
+                        <button
+                          className="pbtn"
+                          aria-label={playing === i ? `Dừng bản ${i + 1}` : `Phát bản ${i + 1}`}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setTakeIdx(i);
+                            play(i);
+                          }}>
+                          {playing === i ? '❚❚' : '▶'}
+                        </button>
+                        <div>
+                          <b>Bản {i + 1}</b>
+                          {i === 0 && <span className="tag">Gợi ý</span>}
+                          <br />
+                          <small>{isUnlocked ? `Trọn bài${dur ? ` · ${mmss(dur)}` : ''}` : `Nghe thử ${PREVIEW_SEC} giây`}</small>
+                        </div>
+                      </div>
+                      <div className="bar"><i style={{width: playing === i ? `${progress * 100}%` : 0}} /></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={isUnlocked ? 'lyrics' : 'lyrics locked'}>
+              {order.lyrics?.map((sec, si) => {
+                const isLate = !isUnlocked && firstChorus >= 0 && si > firstChorus;
+                return (
+                  <div key={si} aria-hidden={isLate || undefined}>
+                    <div className="sec">{sec.name}</div>
+                    {sec.lines.map((l, li) => <div key={li} className={isLate ? 'ln on late' : 'ln on'}>{l}</div>)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="r-side">
+            {isUnlocked ? (
+              <div className="done-card">
+                <h3 className="serif">Cảm ơn bạn! Bài hát đã được mở khoá 🎉</h3>
+                <p className="sub">Nghe trọn bài hoặc tải về. Thanh toán giả lập, bản thật sẽ gửi email kèm link nghe riêng.</p>
+                <div className="dl">
+                  {order.takes.map((t, i) => (
+                    <a key={t.audioUrl} className={i === takeIdx ? 'btn primary' : 'btn outline'} href={t.audioUrl} download target="_blank" rel="noreferrer">
+                      ⬇ Tải bản {i + 1}
+                    </a>
+                  ))}
                 </div>
-              </StackItem>
-            </HStack>
-            <Grid columns={isNarrow ? 1 : 2} gap={5}>
-              <VStack gap={5}>
-                {player}
-                {paywall}
-                {mvCard}
-              </VStack>
-              {lyrics}
-            </Grid>
-            <HStack hAlign="center">
-              <Button label="🎵 Tạo bài hát khác" variant="ghost" onClick={onNew} />
-            </HStack>
-          </VStack>
-        </LayoutContent>
-      }
-    />
+              </div>
+            ) : (
+              <div className="paywall">
+                <p className="pk dark">MỞ KHOÁ TRỌN GÓI</p>
+                <h3>Giữ bài hát này mãi mãi</h3>
+                <div className="price">{vnd(BASE_PRICE)}</div>
+                <ul className="incl">
+                  <li>Bài hát trọn vẹn, cả {order.takes.length} bản</li>
+                  <li>Trang nghe riêng để gửi tặng</li>
+                  <li>Chỉnh sửa miễn phí nếu chưa ưng</li>
+                </ul>
+                <button className="btn primary big wide" disabled={isPaying} onClick={pay}>
+                  {isPaying ? 'Đang xác nhận thanh toán…' : `Thanh toán ${vnd(BASE_PRICE)} (giả lập)`}
+                </button>
+                <div className="trust"><span>🔒 VietQR mọi ngân hàng</span><span>↺ Sửa miễn phí</span><span>✓ Hoàn tiền</span></div>
+              </div>
+            )}
+
+            <div className="mvcta">
+              <p className="pk">SOUND YOU CAN SEE</p>
+              <h3>Biến bài hát thành thước phim</h3>
+              <p>Mỗi câu hát thành một cảnh phim, phụ đề chạy theo lời. Dùng “Bản {takeIdx + 1}” đang chọn.</p>
+              <div className="f">
+                <label>Kiểu MV <small>chọn một mức</small></label>
+                <div className="tiers" role="radiogroup" aria-label="Kiểu MV">
+                  {(Object.keys(MV_MODES) as MvMode[]).map(k => (
+                    <label key={k} className={k === mvMode ? 'tier on' : 'tier'}>
+                      <input type="radio" name="mvMode" checked={k === mvMode} onChange={() => setMvMode(k)} />
+                      <span><b>{MV_MODES[k].label}</b><span className="tm">{MV_MODES[k].description}</span></span>
+                      <span className="pr">+{vnd(MV_MODES[k].price)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="f">
+                <label>Khung hình</label>
+                <div className="chips mini-chips" role="group" aria-label="Khung hình">
+                  {RATIOS.map(([v, label]) => (
+                    <button type="button" key={v} className={v === mvRatio ? 'chip on' : 'chip'} aria-pressed={v === mvRatio} onClick={() => setMvRatio(v)}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="upl">
+                <label htmlFor="mvPhotos">+ Nhập ảnh người nhận</label>
+                <input type="file" id="mvPhotos" accept="image/*" multiple onChange={e => pickPhotos(e.target.files)} />
+                <span>{photos.length ? photos.map(f => f.name).join(', ') : `Không bắt buộc. Tối đa ${MAX_PHOTOS} ảnh rõ mặt, mỗi ảnh dưới 10MB.`}</span>
+              </div>
+              {photos.length > 0 && (
+                <label className="consent">
+                  <input type="checkbox" checked={hasConsent} onChange={e => setHasConsent(e.target.checked)} />
+                  <span>Tôi có quyền dùng các ảnh này và đồng ý cho AI xử lý để làm MV.</span>
+                </label>
+              )}
+              <div className="est">
+                Bản chạy thử: <b>{mvPlan.length} cảnh</b>, {mvPlan.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
+                {estimateCostUsd(mvPlan).toFixed(2)} · dựng khoảng 5 đến 10 phút
+              </div>
+              {!MOCK && (
+                <div className="f">
+                  <label htmlFor="mvPass">Mã truy cập bản chạy thử</label>
+                  <input id="mvPass" type="password" value={passcode} onChange={e => onPasscode(e.target.value)} autoComplete="off" />
+                </div>
+              )}
+              <button
+                className="btn primary wide"
+                disabled={!canMakeMv}
+                onClick={() => durationSec && onMakeMv({mode: mvMode, ratio: mvRatio, takeIdx, durationSec, photos})}>
+                {isMvStarting ? 'Đang mở Xưởng MV…' : 'Mở Xưởng MV →'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <details className="studio-panel">
+          <summary>Xem các agent đã làm gì (chế độ thử nghiệm)</summary>
+          <div className="kv">{review.map(x => <span key={x}>{x}</span>)}</div>
+        </details>
+        <p className="r-again"><button className="btn ghost" onClick={onNew}>Tạo bài hát khác</button></p>
+      </section>
+    </StudioShell>
   );
 }
