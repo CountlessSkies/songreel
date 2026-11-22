@@ -1,6 +1,8 @@
-// Trang chu SolSongs, dung theo ref/solsongs-v1.3.html (thiet ke cua sep). Noi dung va CSS giu nguyen ban goc,
+// Trang chu Sol Songs, dung theo ref/solsongs-v1.6.1.html (thiet ke cua sep). Noi dung va CSS giu nguyen ban goc,
 // chi doi phan tuong tac: bam "Tao bai hat" / chon dip thi mo bang hoi voi dip va nguoi nhan dien san.
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent} from 'react';
+import {BEDS, instrumental} from './homeBed';
+import {occArt} from './homeOccArt';
 import './home.css';
 
 export type StartPrefill = {occ?: string; rel?: string};
@@ -22,50 +24,52 @@ type Sample = {
   rel: string;
   lyric: string[];
   pts: string[];
-  /** Ban nhac that da tao bang SolSongs (neu co). */
+  /** Giai dieu nen khong loi tao trong trinh duyet, dung khi chua co ban nhac that. */
+  bed: keyof typeof BEDS;
+  /** Ban nhac that da tao bang Sol Songs (neu co). */
   audio?: string;
 };
 
 const SAMPLES: Sample[] = [
   {
     tab: 'Sinh nhật', title: 'Tuổi Mới Của Mẹ Thu', for: 'Con gái tặng mẹ', tags: ['Ballad Việt', 'Giọng nữ', 'Cảm động'],
-    img: '/home/canh-3.jpg', occ: 'sinh_nhat', rel: 'me',
+    bed: 'ballad', img: '/home/canh-3.jpg', occ: 'sinh_nhat', rel: 'me',
     lyric: ['Hôm nay sinh nhật mẹ Thu ơi', 'Con hát khúc ca này tặng mẹ', 'Chúc mẹ tuổi mới thật bình an', 'Mãi là ánh sáng trong tim con'],
     pts: ['Tên mẹ được hát trong điệp khúc', 'Kỷ niệm bữa cơm chiều mưa thành câu hát', 'MV dọc 9:16 để gửi qua Zalo, Messenger'],
     audio: '/mock/take1.mp3',
   },
   {
     tab: 'Kỷ niệm', title: 'Mười Năm Bên Em', for: 'Chồng tặng vợ', tags: ['Acoustic', 'Song ca', 'Lãng mạn'],
-    img: '/home/canh-4.jpg', occ: 'ky_niem', rel: 'vo',
+    bed: 'indie', img: '/home/canh-4.jpg', occ: 'ky_niem', rel: 'vo',
     lyric: ['Mười năm rồi em ơi, mình vẫn nắm tay', 'Qua bao mùa mưa nắng chẳng đổi thay', 'Căn phòng nhỏ ngày đầu còn nhớ mãi', 'Anh vẫn thương em như buổi ban đầu'],
     pts: ['Từ căn phòng trọ đầu tiên đến hôm nay', 'Song ca: hai người cùng hát', 'Thước phim dựng từ ảnh cưới của hai bạn'],
   },
   {
     tab: 'Cảm ơn', title: 'Lời Cảm Ơn Gửi Thầy', for: 'Học trò tặng thầy', tags: ['Dân ca đương đại', 'Giọng nam', 'Hoài niệm'],
-    img: '/home/canh-2.jpg', occ: 'cam_on', rel: 'thay_co',
+    bed: 'piano', img: '/home/canh-2.jpg', occ: 'cam_on', rel: 'thay_co',
     lyric: ['Cảm ơn thầy những sớm mai', 'Phấn trắng rơi trên bục giảng dài', 'Lời thầy dạy theo em suốt đời', 'Hôm nay em hát gửi thầy đôi lời'],
     pts: ['Chi tiết lớp học cũ thành câu hát', 'Phối đàn tranh, sáo trúc', 'Hợp để phát trong buổi họp lớp'],
   },
 ];
 
-/** [emoji, nhan, mo ta, dip, nguoi nhan, mau nen] */
-const OCCS: [string, string, string, string, string | null, string][] = [
-  ['🎂', 'Sinh nhật', 'Ngọn nến, lời chúc tuổi mới', 'sinh_nhat', null, '#ffe3c4,#f7b98a'],
-  ['💞', 'Kỷ niệm ngày yêu', 'Ngày đầu nắm tay', 'ky_niem', null, '#ffd6dc,#f29bab'],
-  ['👩', 'Ngày của Mẹ', 'Bữa cơm chiều, bàn tay ấm', 'ngay_cua_me', 'me', '#fde6c8,#f1c27d'],
-  ['👨', 'Ngày của Bố', 'Chiếc xe đạp, đôi vai gầy', 'cam_on', 'bo', '#d9e6f5,#9db8dc'],
-  ['🌹', 'Tình yêu', 'Những điều chưa kịp nói', 'khong_ly_do', 'nguoi_yeu_nu', '#f9d2d2,#e58c8c'],
-  ['💍', 'Đám cưới', 'Trăm năm bắt đầu từ hôm nay', 'dam_cuoi', null, '#f3ecdc,#e3cfa5'],
-  ['🕯️', 'Tưởng nhớ', 'Người vẫn ở trong từng ký ức', 'tuong_nho', null, '#e2e0ea,#a9a6c2'],
-  ['🎓', 'Tốt nghiệp', 'Bước sang trang mới', 'tot_nghiep', null, '#dcefe2,#9fd0b0'],
-  ['🙏', 'Cảm ơn', 'Vì đã luôn ở bên', 'cam_on', null, '#fff0c9,#f3d27a'],
-  ['✈️', 'Yêu xa', 'Khác múi giờ, chung nhịp tim', 'yeu_xa', null, '#d6ecf7,#8fc4e3'],
-  ['🤍', 'Xin lỗi', 'Lời khó nói thành câu hát', 'xin_loi', null, '#eceff3,#c3cbd6'],
-  ['🏮', 'Tết sum vầy', 'Nhà mình đủ mặt', 'tet', null, '#ffd8cc,#ee8a6a'],
+/** [hinh, nhan, mo ta, dip, nguoi nhan, do sau trong luoi 3D] */
+const OCCS: [string, string, string, string, string | null, 'near' | 'mid' | 'far'][] = [
+  ['sinh_nhat', 'Sinh nhật', 'Ngọn nến, lời chúc tuổi mới', 'sinh_nhat', null, 'near'],
+  ['ky_niem', 'Kỷ niệm ngày yêu', 'Ngày đầu nắm tay', 'ky_niem', null, 'far'],
+  ['ngay_cua_me', 'Ngày của Mẹ', 'Bữa cơm chiều, bàn tay ấm', 'ngay_cua_me', 'me', 'mid'],
+  ['cam_on_bo', 'Ngày của Bố', 'Chiếc xe đạp, đôi vai gầy', 'cam_on', 'bo', 'near'],
+  ['tinh_yeu', 'Tình yêu', 'Những điều chưa kịp nói', 'khong_ly_do', 'nguoi_yeu_nu', 'mid'],
+  ['dam_cuoi', 'Đám cưới', 'Trăm năm bắt đầu từ hôm nay', 'dam_cuoi', null, 'near'],
+  ['tuong_nho', 'Tưởng nhớ', 'Người vẫn ở trong từng ký ức', 'tuong_nho', null, 'far'],
+  ['tot_nghiep', 'Tốt nghiệp', 'Bước sang trang mới', 'tot_nghiep', null, 'mid'],
+  ['cam_on', 'Cảm ơn', 'Vì đã luôn ở bên', 'cam_on', null, 'far'],
+  ['yeu_xa', 'Yêu xa', 'Khác múi giờ, chung nhịp tim', 'yeu_xa', null, 'near'],
+  ['xin_loi', 'Xin lỗi', 'Lời khó nói thành câu hát', 'xin_loi', null, 'mid'],
+  ['tet', 'Tết sum vầy', 'Nhà mình đủ mặt', 'tet', null, 'far'],
 ];
 
 const FAQ: [string, string][] = [
-  ['Tôi có cần tự viết lời không?', 'Không. Bạn chỉ cần kể kỷ niệm bằng lời của mình. SolSongs viết thành ca từ có vần, có tên người nhận trong điệp khúc, rồi phổ nhạc.'],
+  ['Tôi có cần tự viết lời không?', 'Không. Bạn chỉ cần kể kỷ niệm bằng lời của mình. Sol Songs viết thành ca từ có vần, có tên người nhận trong điệp khúc, rồi phổ nhạc.'],
   ['Tôi nhận được những gì?', 'Bài hát trọn vẹn khoảng 2 phút, trang nghe riêng để gửi tặng, file nhạc để tải. Nếu chọn gói MV: thước phim theo từng câu hát, có phụ đề, khung dọc hoặc ngang.'],
   ['Mất bao lâu?', 'Bản nghe thử có sau vài phút. MV ảnh động dựng ngay sau đó; MV video AI cần thêm thời gian vì mỗi cảnh được quay riêng.'],
   ['Nếu bản đầu tiên chưa ưng thì sao?', 'Bạn được sửa miễn phí: chỉnh câu hát, đổi thể loại, đổi giọng hay tạo lại từng cảnh. Nếu vẫn chưa hài lòng, chúng tôi hoàn tiền theo chính sách.'],
@@ -81,13 +85,92 @@ const Trust = ({center}: {center?: boolean}) => (
   </p>
 );
 
-const Logo = ({light}: {light?: boolean}) => (
-  <a className={light ? 'h-logo light' : 'h-logo'} href="#top" onClick={toTop}>
-    <span className="sunmark" aria-hidden="true" />
-    Sol<b>Songs</b>
-    {!light && <span className="h-logotag">Sound you can see</span>}
-  </a>
-);
+/** Cot song am: 11 vach tren (mat troi) va bong phan chieu ben duoi. */
+const BARS: [number, number][] = [
+  [108.6, 148.1], [85.6, 157.7], [73.3, 162.9], [65.8, 166.1], [61.6, 167.8], [60.3, 168.4],
+  [61.6, 167.8], [65.8, 166.1], [73.3, 162.9], [85.6, 157.7], [108.6, 148.1],
+];
+
+function Logo({light}: {light?: boolean}) {
+  const gid = useId();
+  return (
+    <a className={light ? 'h-logo light' : 'h-logo'} href="#top" onClick={toTop}>
+      <svg className="lmark" xmlns="http://www.w3.org/2000/svg" viewBox="14 46 172 132" width="38" height="29" aria-hidden="true">
+        <defs>
+          <linearGradient id={gid} x1="0" y1="54" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#FFC63D" />
+            <stop offset="1" stopColor="#F0506E" />
+          </linearGradient>
+        </defs>
+        <g stroke={`url(#${gid})`} strokeWidth="9.5" strokeLinecap="round">
+          {BARS.map(([top], i) => <line key={i} x1={27.5 + i * 14.5} y1={top} x2={27.5 + i * 14.5} y2="131" />)}
+        </g>
+        <g stroke="#7A5AF8" strokeOpacity=".55" strokeWidth="9.5" strokeLinecap="round">
+          {BARS.map(([, bottom], i) => <line key={i} x1={27.5 + i * 14.5} y1="141" x2={27.5 + i * 14.5} y2={bottom} />)}
+        </g>
+      </svg>
+      <span className="wm">Sol Songs</span>
+      {!light && <span className="wtag">Sound you can see</span>}
+    </a>
+  );
+}
+
+/** Luoi dip tang co chieu sau: ca luoi nghieng theo chuot, moi khung co thi sai 3 lop. */
+function OccGrid({onPick}: {onPick: (p: StartPrefill) => void}) {
+  const innRef = useRef<HTMLDivElement>(null);
+  const isStill = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const inn = innRef.current;
+    if (!inn || isStill()) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    inn.style.setProperty('--rx', `${(x * 7).toFixed(2)}deg`);
+    inn.style.setProperty('--ry', `${(-y * 5).toFixed(2)}deg`);
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.oc');
+    if (!c) return;
+    const q = c.getBoundingClientRect();
+    c.style.setProperty('--mx', ((e.clientX - q.left) / q.width - 0.5).toFixed(3));
+    c.style.setProperty('--my', ((e.clientY - q.top) / q.height - 0.5).toFixed(3));
+  };
+  const onLeave = () => {
+    innRef.current?.style.setProperty('--rx', '0deg');
+    innRef.current?.style.setProperty('--ry', '0deg');
+  };
+  const onOut = (e: PointerEvent<HTMLDivElement>) => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.oc');
+    if (c && !c.contains(e.relatedTarget as Node | null)) {
+      c.style.setProperty('--mx', '0');
+      c.style.setProperty('--my', '0');
+    }
+  };
+
+  return (
+    <div className="h-occ occ3d" onPointerMove={onMove} onPointerLeave={onLeave} onPointerOut={onOut}>
+      <div className="occ-in" ref={innRef}>
+        {OCCS.map(([art, l, m, occ, rel, depth], k) => (
+          <div
+            className={`oc-cell ${depth}`}
+            key={art}
+            style={{'--fd': `${(6 + (k % 4) * 1.3).toFixed(1)}s`, '--fdl': `-${(k * 0.9).toFixed(1)}s`} as CSSProperties}
+          >
+            <button className="oc" aria-label={`${l}: ${m}`} onClick={() => onPick({occ, rel: rel ?? undefined})}>
+              <div className="oc-art">
+                <svg viewBox="0 0 320 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true" dangerouslySetInnerHTML={{__html: occArt(art)}} />
+              </div>
+              <div className="oc-tx">
+                <b>{l}</b>
+                <small>{m}</small>
+                <span className="oc-go">Tạo bài cho dịp này →</span>
+              </div>
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function toTop(e: React.MouseEvent) {
   e.preventDefault();
@@ -106,10 +189,26 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
     void heroRef.current?.play().catch(() => {});
   }, []);
 
-  useEffect(() => {
+  // Giai dieu nen: token tang moi lan dung de bo qua ban render xong tre
+  const bed = useRef<{ac?: AudioContext; src?: AudioBufferSourceNode; token: number}>({token: 0});
+
+  const stopSample = () => {
     sampleRef.current?.pause();
+    const b = bed.current;
+    b.token++;
+    if (b.src) {
+      b.src.onended = null;
+      try {
+        b.src.stop();
+      } catch {
+        /* da dung */
+      }
+      b.src = undefined;
+    }
     setIsSampleOn(false);
-  }, [tab]);
+  };
+
+  useEffect(() => stopSample, [tab]);
 
   const toggleSound = () => {
     const v = heroRef.current;
@@ -123,21 +222,44 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
   };
 
   const toggleSample = () => {
-    const a = sampleRef.current;
-    if (!a) return;
     if (isSampleOn) {
-      a.pause();
-      setIsSampleOn(false);
+      stopSample();
       return;
     }
-    if (a.currentTime < 30) a.currentTime = 30; // vao gan dieu khuc
-    void a.play();
     setIsSampleOn(true);
+    const a = sampleRef.current;
+    if (s.audio && a) {
+      if (a.currentTime < 30) a.currentTime = 30; // vao gan dieu khuc
+      void a.play();
+      return;
+    }
+    void playBed();
+  };
+
+  const playBed = async () => {
+    const b = bed.current;
+    const token = ++b.token;
+    try {
+      b.ac ??= new AudioContext();
+      await b.ac.resume();
+      const buf = await instrumental(BEDS[s.bed], s.title, 18);
+      if (token !== b.token) return;
+      const src = b.ac.createBufferSource();
+      src.buffer = buf;
+      src.connect(b.ac.destination);
+      src.onended = () => {
+        if (b.src === src) stopSample();
+      };
+      src.start();
+      b.src = src;
+    } catch {
+      if (token === b.token) stopSample();
+    }
   };
 
   const start = (p?: StartPrefill) => {
     heroRef.current?.pause();
-    sampleRef.current?.pause();
+    stopSample();
     onStart(p);
   };
 
@@ -169,7 +291,7 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
             </h1>
             <p className="h-tagline">Sound you can see.</p>
             <p className="h-lead">
-              Kể cho SolSongs một kỷ niệm. Chúng tôi viết thành ca từ, phổ thành giai điệu và dựng thành một thước phim chân thật,
+              Kể cho Sol Songs một kỷ niệm. Chúng tôi viết thành ca từ, phổ thành giai điệu và dựng thành một thước phim chân thật,
               để người bạn thương được <b>nghe lại</b>, <b>nhìn lại</b> và <b>cảm lại</b> khoảnh khắc ấy.
             </p>
             <div className="h-btns">
@@ -298,15 +420,15 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
                 ))}
               </p>
               <ul>{s.pts.map(p => <li key={p}>{p}</li>)}</ul>
-              {s.audio && (
-                <>
-                  <audio ref={sampleRef} src={s.audio} preload="none" onEnded={() => setIsSampleOn(false)} />
-                  <button className="h-play" onClick={toggleSample}>{isSampleOn ? '❚❚ Đang phát' : '▶ Nghe bài mẫu'}</button>
-                </>
-              )}
+              {s.audio && <audio ref={sampleRef} src={s.audio} preload="none" onEnded={() => setIsSampleOn(false)} />}
+              <button className="h-play" onClick={toggleSample}>
+                {isSampleOn ? '❚❚ Đang phát' : s.audio ? '▶ Nghe bài mẫu' : '▶ Nghe giai điệu mẫu'}
+              </button>
               <button className="h-cta" onClick={() => start({occ: s.occ, rel: s.rel})}>Tạo bài cho dịp này →</button>
               <p className="h-small dark">
-                {s.audio ? 'Bài mẫu thật do SolSongs tạo (lời khác với lời minh hoạ ở trên).' : 'Lời mẫu minh hoạ.'}
+                {s.audio
+                  ? 'Bài mẫu thật do Sol Songs tạo (lời khác với lời minh hoạ ở trên).'
+                  : 'Lời mẫu minh hoạ; giai điệu nền không lời được tạo ngay trong trình duyệt.'}
               </p>
             </div>
           </div>
@@ -318,14 +440,7 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
         <div className="h-wrap">
           <p className="h-eye dark">DỊP NÀO CŨNG CÓ KHOẢNH KHẮC</p>
           <h2 className="ink">Bài hát và thước phim cho mọi dịp</h2>
-          <div className="h-occ">
-            {OCCS.map(([e, l, m, occ, rel, g]) => (
-              <button key={l} onClick={() => start({occ, rel: rel ?? undefined})}>
-                <div className="art" style={{background: `linear-gradient(135deg,${g})`}}>{e}</div>
-                <div className="tx"><b>{l}</b><small>{m}</small></div>
-              </button>
-            ))}
-          </div>
+          <OccGrid onPick={start} />
         </div>
       </section>
 
@@ -403,7 +518,7 @@ export function Home({onStart}: {onStart: (p?: StartPrefill) => void}) {
             <span>Chính sách hoàn tiền</span>
           </div>
         </div>
-        <p className="h-copy">© 2026 SolSongs · Lời, nhạc và hình được tạo với sự hỗ trợ của AI.</p>
+        <p className="h-copy">© 2026 Sol Songs · Lời, nhạc và hình được tạo với sự hỗ trợ của AI.</p>
       </footer>
     </main>
   );

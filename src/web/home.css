@@ -96,3 +96,62 @@
 .h-foot .linkish{background:none;border:0;padding:0;font:inherit;cursor:pointer}
 .h-foot .linkish:hover,.h-foot a:hover{color:#fff}
 .h-foot-tag{color:#f2b33d;font-family:Lora,serif;font-style:italic;font-size:17px;font-weight:400}
+
+/* ===== v1.6.1: logo, dip tang 3D (ref/solsongs-v1.6.1.html). Keyframes mang tien to oc- de khong trung app.css. ===== */
+.lmark{display:block;flex:none}
+.wm{font-family:Sora,"Be Vietnam Pro",system-ui,sans-serif;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.wtag{font-family:"DM Sans","Be Vietnam Pro",sans-serif;font-weight:500;font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:#a9a2b8;white-space:nowrap}
+.h-logo{gap:10px}.h-logo .wm{color:#F7F2EA;font-size:20px}.h-logo .wtag{border-left:1px solid #3a4460;padding-left:10px}
+#dip-tang{background:radial-gradient(900px 500px at 80% 10%,#4a2433 0,rgba(74,36,51,0) 60%),radial-gradient(800px 500px at 0% 90%,#2f2450 0,rgba(47,36,80,0) 60%),#141a2b;position:relative;overflow:hidden}
+#dip-tang::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.07;background-image:repeating-radial-gradient(circle at 30% 40%,#fff 0 1px,transparent 1px 3px)}
+#dip-tang .h-eye.dark{color:#FFC63D}#dip-tang h2.ink{color:#fff}#dip-tang h2::after{content:" Rê chuột để chạm vào từng khoảnh khắc.";display:block;font-family:"Be Vietnam Pro",sans-serif;font-size:14px;font-weight:400;color:#b7b0c2;letter-spacing:0;margin-top:10px}
+.occ3d{display:block!important;perspective:1600px;position:relative;z-index:1}
+.occ-in{pointer-events:none;display:grid;grid-template-columns:repeat(4,1fr);gap:26px 22px;transform-style:preserve-3d;transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg));transition:transform .6s cubic-bezier(.2,.7,.2,1);padding:20px 0 30px}
+.oc-cell{transform-style:preserve-3d;animation:oc-ocfloat var(--fd,7s) ease-in-out infinite;animation-delay:var(--fdl,0s);position:relative}
+.oc-cell.far{--z:-70px;--s:.9;--b:.78}.oc-cell.mid{--z:-10px;--s:.97;--b:.92}.oc-cell.near{--z:50px;--s:1.03;--b:1}
+.oc-cell:nth-child(4n+2){margin-top:34px}.oc-cell:nth-child(4n+3){margin-top:-8px}.oc-cell:nth-child(4n+4){margin-top:22px}
+@keyframes oc-ocfloat{0%,100%{transform:translate3d(0,0,var(--z)) scale(var(--s))}50%{transform:translate3d(0,-10px,var(--z)) scale(var(--s))}}
+.oc-cell:hover{z-index:10}
+.oc{pointer-events:auto;display:block;width:100%;border:0;padding:0;background:#1d2236;border-radius:22px;overflow:hidden;cursor:pointer;position:relative;text-align:left;font:inherit;color:#fff;
+ filter:brightness(var(--b));box-shadow:0 18px 40px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.07);transition:transform .55s cubic-bezier(.2,.8,.2,1),filter .4s,box-shadow .5s;transform:translateZ(0)}
+.oc:hover,.oc:focus-visible{transform:translateZ(150px) scale(1.22);filter:brightness(1.06);box-shadow:0 40px 80px rgba(0,0,0,.55),0 0 0 2px rgba(255,198,61,.65);outline:none}
+.oc-art{aspect-ratio:4/3.4;overflow:hidden}.oc-art svg{width:100%;height:100%;display:block;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.oc:hover .oc-art svg{transform:scale(1.06)}
+.oc .L1,.oc .L2,.oc .L3{transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.oc .L1{transform:translate(calc(var(--mx,0)*-8px),calc(var(--my,0)*-6px))}.oc .L2{transform:translate(calc(var(--mx,0)*10px),calc(var(--my,0)*7px))}.oc .L3{transform:translate(calc(var(--mx,0)*26px),calc(var(--my,0)*18px))}
+.oc-tx{position:absolute;left:0;right:0;bottom:0;padding:44px 16px 14px;background:linear-gradient(180deg,rgba(14,12,24,0),rgba(14,12,24,.86) 55%)}
+.oc-tx b{display:block;font-family:Lora,serif;font-size:19px;font-weight:600;color:#fff}.oc-tx small{display:block;font-size:12.5px;color:#e6dccd;margin-top:2px}
+.oc-go{display:block;max-height:0;opacity:0;overflow:hidden;font-size:12px;font-weight:700;color:#FFC63D;transition:max-height .4s,opacity .4s,margin .4s}
+.oc:hover .oc-go,.oc:focus-visible .oc-go{max-height:20px;opacity:1;margin-top:6px}
+/* chuyển động trong khung */
+.oc .tw{animation:oc-tw 2.6s ease-in-out infinite}@keyframes oc-tw{50%{opacity:.25}}
+.oc .fall{animation:oc-fall 5s linear infinite}@keyframes oc-fall{from{transform:translateY(-20px) rotate(0)}to{transform:translateY(270px) rotate(320deg)}}
+.oc .sway{animation-name:oc-fallsway}@keyframes oc-fallsway{0%{transform:translate(0,-20px) rotate(0)}25%{transform:translate(14px,50px) rotate(60deg)}50%{transform:translate(-8px,120px) rotate(140deg)}75%{transform:translate(12px,190px) rotate(220deg)}100%{transform:translate(0,270px) rotate(300deg)}}
+.oc .flick{animation:oc-flick .35s ease-in-out infinite alternate;transform-box:fill-box}@keyframes oc-flick{from{transform:scale(1,1) skewX(-3deg)}to{transform:scale(.88,1.08) skewX(3deg)}}
+.oc .breathe{animation:oc-breathe 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes oc-breathe{50%{opacity:.55;transform:scale(1.08)}}
+.oc .breathe2{animation:oc-breathe2 3s ease-in-out infinite}@keyframes oc-breathe2{50%{transform:scale(1.05)}}
+.oc .rise{animation:oc-rise 6s ease-in infinite;transform-box:fill-box}@keyframes oc-rise{0%{transform:translateY(20px);opacity:0}15%{opacity:1}100%{transform:translateY(-190px);opacity:0}}
+.oc .rays{animation:oc-spin 30s linear infinite}
+.oc .sway2{animation:oc-sway2 3.4s ease-in-out infinite}@keyframes oc-sway2{50%{transform:rotate(4deg)}}
+.oc .wheel{animation:oc-spin 1s linear infinite;transform-box:fill-box;transform-origin:center;stroke-dasharray:20 6}
+.oc .ride{animation:oc-ride 9s ease-in-out infinite}@keyframes oc-ride{0%{transform:translateX(-60px)}50%{transform:translateX(70px)}100%{transform:translateX(-60px)}}
+.oc .spinY{animation:oc-spinY 3.2s ease-in-out infinite}@keyframes oc-spinY{50%{transform:scaleX(.55)}}
+.oc .shoot{animation:oc-shoot 5s ease-in infinite}@keyframes oc-shoot{0%,70%{transform:translate(0,0);opacity:0}75%{opacity:1}100%{transform:translate(160px,56px);opacity:0}}
+.oc .float{animation:oc-fl 5s ease-in-out infinite;transform-box:fill-box}@keyframes oc-fl{0%{transform:translateY(0);opacity:0}30%{opacity:1}100%{transform:translateY(-120px);opacity:0}}
+.oc .drift{animation:oc-drift 16s ease-in-out infinite}@keyframes oc-drift{50%{transform:translateX(26px)}}
+.oc .toss{animation:oc-toss 3.2s cubic-bezier(.3,.6,.4,1) infinite}@keyframes oc-toss{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-70px) rotate(-14deg)}55%{transform:translateY(-74px) rotate(10deg)}}
+.oc .bob{animation:oc-bob 4s ease-in-out infinite}@keyframes oc-bob{50%{transform:translateY(-6px)}}
+.oc .dash{animation:oc-dash 2.5s linear infinite}@keyframes oc-dash{to{stroke-dashoffset:-26}}
+.oc .ping{animation:oc-ping 2s ease-out infinite;transform-box:fill-box;transform-origin:center}@keyframes oc-ping{from{transform:scale(.6);opacity:1}to{transform:scale(2);opacity:0}}
+.oc .fly{offset-path:path("M40 190Q160 60 280 190");animation:oc-fly 5s ease-in-out infinite}@keyframes oc-fly{from{offset-distance:0%}to{offset-distance:100%}}
+.oc .rain{animation:oc-rain .7s linear infinite}@keyframes oc-rain{from{transform:translateY(0);opacity:1}to{transform:translateY(60px);opacity:0}}
+.oc .bow{stroke-dasharray:380;animation:oc-bow 6s ease-in-out infinite}@keyframes oc-bow{0%,15%{stroke-dashoffset:380}50%,85%{stroke-dashoffset:0}100%{stroke-dashoffset:-380}}
+.oc .burst{animation:oc-burst 2.6s ease-out infinite;transform-box:fill-box}@keyframes oc-burst{0%{transform:scale(.1);opacity:0}20%{opacity:1}100%{transform:scale(1.2);opacity:0}}
+.oc .swing{animation:oc-swing 3s ease-in-out infinite}@keyframes oc-swing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+@keyframes oc-spin{to{transform:rotate(360deg)}}
+@media(max-width:960px){.occ-in{grid-template-columns:repeat(3,1fr)}.oc-cell:nth-child(n){margin-top:0}}
+@media(max-width:620px){.occ3d{perspective:none}.occ-in{grid-template-columns:1fr 1fr;gap:14px;transform:none!important}.oc-cell{animation:none;--z:0px;--s:1;--b:1}.oc:hover{transform:scale(1.04)}.oc-tx b{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.oc-cell,.oc *{animation:none!important}.occ-in{transform:none!important}}
+@media(max-width:560px){.h-navin{gap:8px}.h-logo .wm{font-size:17px}.h-logo .lmark{width:30px;height:23px}.h-cta.sm{padding:8px 12px;font-size:12.5px;white-space:nowrap}}
+@media(max-width:760px){.h-logo .wtag{display:none}}
+@media(max-width:620px){.oc-tx{padding:26px 10px 9px}.oc-tx small{font-size:11px;line-height:1.35}.oc-art{aspect-ratio:4/4.4}}
