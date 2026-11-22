@@ -92,16 +92,17 @@ Phụ đề trong video chạy theo mốc đo được (`lineTimes`), không hi�
 
 ## Frontend (`src/web/`)
 
-- React 19. Trang chủ, bảng hỏi, màn chờ, màn kết quả và Xưởng MV tự vẽ bằng HTML/CSS lấy từ `ref/solsongs-v1.6.1.html`, không dùng component Astryx:
+- React 19. Trang chủ, bảng hỏi, màn chờ, màn kết quả và Xưởng MV tự vẽ bằng HTML/CSS lấy từ `ref/solsongs-v1.6.1.html`, không dùng thư viện component nào (đã gỡ Astryx):
   - `StudioShell.tsx`: thanh trên cùng (logo sóng âm, tab Trang chủ / Bài hát / Xưởng MV, nút "Kết nối AI") và lớp bọc `.studio`. Tab Xưởng MV chỉ bấm được khi bài đã xong; nút "Kết nối AI" chỉ hiện thông báo đang phát triển.
-  - `studio.css`: CSS của bản ref lồng trong `.studio`, kèm phần trả lại margin/màu chữ mà reset của Astryx đã xoá. Phần riêng của app nằm ở cuối file.
+  - `app.css`: chỉ phần nền chung (box-sizing, font, nền tối), giống đầu CSS của bản ref.
+  - `studio.css`: CSS của bản ref lồng trong `.studio`. Phần riêng của app nằm ở cuối file.
   - `Wizard` (8 chương, cột tiến trình bên trái), `Waiting`, `Result`.
   - `MvStudio` có 2 trạng thái:
     - Chưa dựng (`?studio=1`): thẻ "Nguyên liệu" cho chọn ảnh nhân vật, khung hình, mức Amateur/Pro/Cinematic, mã truy cập, rồi bấm "▶ Dựng MV". Storyboard hiện các cảnh dự kiến, phòng chiếu phát bài kèm phụ đề.
     - MV kể chuyện ở bước duyệt: hộp "Duyệt và quay video" kèm chi phí clip, logline, ảnh nhân vật/bối cảnh, chỉ đạo diễn xuất và khung cuối từng cảnh.
     - Đã dựng (`?mv=<id>&tier=`): thông tin MV, tiến độ, nút "Tạo file MV ↓", timeline bấm để tua, storyboard có ảnh/clip.
     - Bản ref còn cho nhập lời, sửa mô tả và tạo lại từng cảnh; app chưa có API đó nên bỏ.
-- Không còn màn nào dùng component Astryx. `main.tsx` vẫn nạp reset và 7 theme của Astryx (CSS của các màn dựa trên reset đó); nút đổi theme bị ẩn.
+- Trang benchmark `/bench/` (sinh bởi `tools/bench_lyrics.py`) cũng theo giao diện v1.6.1.
 - So với bản ref, app bỏ: "Dựng MV từ bài có sẵn", phong cách hình, độ phân giải clip, cách chia cảnh. App thêm ở chương 8: chọn AI viết lời và mã truy cập.
 - Màn kết quả:
   - Hộp thanh toán có 2 ô mua kèm: gói tạo phim Amateur +299k và bản acoustic +49k; nút hiện đúng tổng. Tích acoustic thì sau khi thanh toán (giả lập) app gọi thu bản acoustic thật, xong hiện thành "Bản acoustic" trong trình phát và nút tải.

@@ -1,90 +1,13 @@
+/* Nen chung cho moi man, theo phan dau CSS cua ref/solsongs-v1.6.1.html.
+   Moi man tu ve phan con lai: trang chu trong home.css (.home), cac man ben trong trong studio.css (.studio). */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
 html, body, #root { height: 100%; }
-
-/* Font cac theme thieu dau tieng Viet: ep ve Be Vietnam Pro cho moi theme */
-[data-astryx-theme] {
-  --font-family-body: 'Be Vietnam Pro', system-ui, sans-serif;
-  --font-family-heading: 'Be Vietnam Pro', system-ui, sans-serif;
+body {
+  background: #141a2b;
+  color: #33405a;
+  font-family: 'Be Vietnam Pro', system-ui, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
 }
-
-/* ── Chip lua chon ─────────────────────────────────────────── */
-.chips > div,
-.chips [role='group'],
-.chips [role='radiogroup'] { flex-wrap: wrap; gap: 8px; }
-
-.chips button {
-  border: 1.5px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent);
-  border-radius: var(--radius-full);
-  background: var(--color-background-card);
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
-}
-.chips button:hover { transform: translateY(-1px); border-color: var(--color-accent); }
-.chips button[aria-pressed='true'] {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-on-accent);
-  transform: scale(1.04);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 35%, transparent);
-}
-
-.step-emoji { font-size: 1.1em; margin-right: 6px; }
-
-/* ── Man cho: dia than quay ───────────────────────────────── */
-.vinyl-wrap { display: flex; justify-content: center; padding: 8px 0 4px; }
-.vinyl {
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, var(--color-accent) 0 18%, #111 19% 21%, transparent 22%),
-    repeating-radial-gradient(circle, #1b1b1b 0 3px, #2a2a2a 3px 5px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  animation: spin 2.2s linear infinite;
-  position: relative;
-}
-.vinyl::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 40%);
-}
-.vinyl.is-stopped { animation-play-state: paused; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Ket qua ──────────────────────────────────────────────── */
-.lyrics-line { margin: 0; line-height: 1.7; }
-.lyrics-chorus { font-weight: 700; color: var(--color-text-accent); }
-.lyrics-locked { filter: blur(5px); user-select: none; }
-
-.cover {
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 12px;
-  display: block;
-}
-.cover.is-playing { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 45%, transparent); }
-  50% { box-shadow: 0 0 0 10px transparent; }
-}
-
-.price { font-weight: 800; font-size: 28px; color: var(--color-text-accent); }
-
-/* Chon theme khi xem mockup */
-.theme-switcher {
-  position: fixed;
-  left: 12px;
-  bottom: 12px;
-  z-index: 50;
-  width: 210px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  border-radius: var(--radius-element);
-  background: var(--color-background-card);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .vinyl, .cover.is-playing { animation: none; }
-}
-/* Khong con man nao dung theme Astryx nen an nut doi theme */
-.theme-switcher { display: none; }

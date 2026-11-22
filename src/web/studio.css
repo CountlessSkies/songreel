@@ -1,5 +1,5 @@
-/* Man ben trong (bang hoi, cho, ket qua): CSS lay tu ref/solsongs-v1.6.1.html (thiet ke cua sep).
-   Tat ca boc trong .studio de khong dung toi trang chu va cac man Astryx. Sinh boi script, sua tay o cuoi file. */
+/* Man ben trong (bang hoi, cho, ket qua, xuong MV): CSS lay tu ref/solsongs-v1.6.1.html (thiet ke cua sep).
+   Tat ca boc trong .studio de khong dung toi trang chu. Sinh boi script, sua tay o cuoi file. */
 @keyframes st-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
 @keyframes st-spin{to{transform:rotate(360deg)}}
 @keyframes st-pulse{50%{opacity:.55}}
@@ -12,7 +12,7 @@ min-height:100vh;position:relative;font-family:"Be Vietnam Pro",system-ui,Arial,
 background:radial-gradient(1100px 600px at 85% -10%,#4a2433 0,rgba(74,36,51,0) 60%),radial-gradient(900px 600px at -10% 30%,#2f2450 0,rgba(47,36,80,0) 60%),var(--night);background-attachment:fixed;
 &::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.075;background-image:repeating-radial-gradient(circle at 30% 40%,#fff 0 1px,transparent 1px 3px)}
 .shell{position:relative;z-index:1}
-/* Astryx reset xoa margin/padding mac dinh va theme gan mau, co chu cho h1-h6, p, small; ban ref dua vao mac dinh cua trinh duyet nen tra lai o day */
+/* Ban ref dua vao mac dinh cua trinh duyet; giu lai cac mac dinh do (va font cho nut) de khong phu thuoc thu tu nap CSS */
 :where(h1,h2,h3,h4,h5,h6,p,small){font-family:inherit;color:inherit;line-height:inherit}:where(p){font-size:inherit;font-weight:inherit}:where(small){font-weight:inherit}
 :where(p){margin:1em 0}:where(h1){font-size:2em;margin:.67em 0;font-weight:700}:where(h2){font-size:1.5em;margin:.83em 0;font-weight:700}:where(h3){font-size:1.17em;margin:1em 0;font-weight:700}:where(h4){margin:1.33em 0;font-weight:700}
 :where(ul,ol){margin:1em 0;padding-left:40px}:where(ul){list-style:disc}:where(ol){list-style:decimal}:where(blockquote){margin:1em 40px}

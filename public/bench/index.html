@@ -1,26 +1,33 @@
 <!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SolSongs · Benchmark viết lời</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap">
+<title>Sol Songs · Benchmark viết lời</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=Be+Vietnam+Pro:wght@400;600;700&family=Sora:wght@600&display=swap">
 <style>
-:root{--bg:#fffaf0;--card:#fff;--ink:#222;--mute:#6b6b6b;--line:#eadfca;--acc:#225bff;--good:#1b8a4a;--bad:#c62828;--warn:#b26a00;--chorus:#fff3c4}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#16140f;--card:#211e17;--ink:#eee;--mute:#aaa;--line:#3a3428;--chorus:#3a3010}}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 'Be Vietnam Pro',system-ui,sans-serif;padding:24px 16px}
-main{max-width:1240px;margin:0 auto} h1{margin:0 0 4px} .sub{color:var(--mute);margin:0 0 20px}
-table{border-collapse:collapse;width:100%;background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:28px}
-th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left} thead th{font-size:13px;color:var(--mute)}
-section{margin:28px 0} h2{margin:0 0 8px} details{color:var(--mute);margin-bottom:12px}
+:root{--night:#141a2b;--card:#fbf6ee;--ink:#1d2a44;--text:#33405a;--mute:#6f7486;--line:#eadfce;--acc:#d4682a;--good:#2f8f5b;--bad:#c0392b;--warn:#c98a00;--chorus:#fff1d6}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--text);font:15px/1.6 'Be Vietnam Pro',system-ui,sans-serif;padding:0 16px 48px;background:radial-gradient(1100px 600px at 85% -10%,#4a2433 0,rgba(74,36,51,0) 60%),radial-gradient(900px 600px at -10% 30%,#2f2450 0,rgba(47,36,80,0) 60%),var(--night);background-attachment:fixed}
+main{max-width:1240px;margin:0 auto}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0;margin-bottom:22px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand{font-family:Sora,'Be Vietnam Pro',sans-serif;font-weight:600;font-size:19px;color:#F7F2EA;text-decoration:none}
+.top .back{color:#f6c690;text-decoration:none;font-size:14px}
+h1{margin:0 0 4px;font-family:Lora,serif;font-weight:500;color:#fff;font-size:clamp(28px,4vw,42px);line-height:1.15}
+.sub{color:#b7b0c2;margin:0 0 20px}
+table{border-collapse:collapse;width:100%;background:var(--card);color:var(--text);border-radius:18px;overflow:hidden;margin-bottom:28px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left} thead th{font-size:13px;color:var(--mute)} tbody th{color:var(--ink)}
+section{margin:34px 0} h2{margin:0 0 8px;font-family:Lora,serif;font-weight:500;color:#fff;font-size:24px}
+details{color:#cfc8d8;margin-bottom:12px} summary{cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
-.col{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-.col h3{margin:0;display:flex;justify-content:space-between;align-items:center}
-.score{background:var(--acc);color:#fff;border-radius:999px;padding:2px 12px;font-size:14px}
-.title{font-weight:700;margin:6px 0 2px} .meta{color:var(--mute);font-size:12.5px;margin:2px 0 8px}
+.col{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.col h3{margin:0;display:flex;justify-content:space-between;align-items:center;color:var(--ink)}
+.score{background:linear-gradient(135deg,#e47a35,#c95a1e);color:#fff;border-radius:999px;padding:2px 12px;font-size:14px}
+.title{font-weight:700;margin:6px 0 2px;color:var(--ink);font-family:Lora,serif} .meta{color:var(--mute);font-size:12.5px;margin:2px 0 8px}
 .flags{margin-bottom:10px} .tag{display:inline-block;font-size:12px;border-radius:999px;padding:1px 10px;margin:2px 4px 2px 0;border:1px solid}
 .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .err{color:var(--bad)}
 .sec{margin:8px 0;padding:6px 10px;border-radius:8px} .sec.chorus{background:var(--chorus)}
 .sname{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
 </style></head><body><main>
-<p><a href="/" style="color:var(--acc)">← Về SolSongs</a></p><h1>Benchmark viết lời tiếng Việt</h1>
+<header class="top"><a class="brand" href="/">Sol Songs</a><a class="back" href="/">← Về trang chủ</a></header>
+<h1>Benchmark viết lời tiếng Việt</h1>
 <p class="sub">Cùng prompt và luật chấm của prototype v1.03 · gọi qua RunningHub · 1 lần/bảng hỏi, không có vòng sửa · 2026-11-17 15:24</p>
 <table><thead><tr><th>Model</th><th>Ra JSON</th><th>Điểm TB</th><th>Đạt luật cứng</th><th>Vần</th><th>Câu 6–10 chữ</th><th>Thời gian TB</th><th>Token ra TB</th></tr></thead>
 <tbody><tr><th>Claude Sonnet 5.5</th><td>3/4</td><td>90</td><td>3/3</td><td>59%</td><td>100%</td><td>7s</td><td>733</td></tr><tr><th>Gemini 4 Hydrogen</th><td>4/4</td><td>85</td><td>4/4</td><td>33%</td><td>99%</td><td>12s</td><td>491</td></tr><tr><th>GPT-6.1 Sol</th><td>4/4</td><td>99</td><td>4/4</td><td>94%</td><td>100%</td><td>37s</td><td>1086</td></tr></tbody></table>
