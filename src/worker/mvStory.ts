@@ -4,17 +4,17 @@
 //   sheets  : Seedream 5.5 ve character sheet (lay anh khach lam tham chieu) va location sheet
 //   frames  : Seedream 5.5 ve khung dau + khung cuoi tung shot tu cac sheet
 //   review  : dung lai cho khach duyet storyboard (xem tren nhac nhu animatic). Chua ton tien video.
-//   clips   : Seedance 2.0 mini quay tung shot voi khung dau + khung cuoi
+//   clips   : quay tung shot tu khung dau toi khung cuoi; model theo muc MV (Amateur: Veo 3.1 fast, Pro/Cinematic: Seedance 2.0 mini)
 // Bo qua so voi tai lieu (lam sau): chon take va can cue tu dong, ghep tren server (Creatomate).
 import {RELS, type Answers, type LyricSection} from '../shared/catalog';
-import {MV_COST, type MvRatio, type MvScene, type MvView} from '../shared/mv';
+import {clipCostUsd, clipSecondsFor, MV_TIERS, type MvRatio, type MvScene, type MvTier, type MvView} from '../shared/mv';
 import {alignLyrics, estimateLines, planShots, type LyricLine} from './align';
 import {transcribeWords} from './openai';
 import {getRow as getOrder, type Brief, type Env} from './pipeline';
 import {MV_STORY_SYSTEM, mvStoryUser} from './prompts';
 import {
-  CLIP_SECONDS, chatText, costOf, isFailure, isSuccess, keepRaw, outputsOf, queryTask, RhError, submitClip, submitSeedream,
-  uploadMedia, type RhResult,
+  chatText, costOf, isFailure, isSuccess, keepRaw, outputsOf, queryTask, RhError, submitSeedream, submitVideo, uploadMedia,
+  type RhResult,
 } from './runninghub';
 
 const DIRECTOR_MODEL = 'openai/gpt-6.1-sol';
@@ -35,6 +35,8 @@ type Character = Sheet & {id: string; name: string; look: string; wardrobe: stri
 type Location = Sheet & {id: string; description: string; light: string};
 
 export type Story = {
+  /** Muc MV khach chon: quyet dinh model quay video. */
+  tier: MvTier;
   timing: 'measured' | 'estimated';
   timingNote?: string;
   logline?: string;
@@ -94,11 +96,13 @@ const size = (r: MvRatio) => (r === '9:16' ? {width: 720, height: 1280} : {width
 const img = (id: string, name: string) => `/api/media/mvimg/${id}/${name}`;
 
 /** Khoi tao luc tao MV: upload anh khach len RunningHub de lam tham chieu (luat cua RunningHub: khong gui base64). */
-export async function initStory(env: Env, photos: {bytes: ArrayBuffer; type: string}[]): Promise<Story> {
+export async function initStory(env: Env, photos: {bytes: ArrayBuffer; type: string}[], tier: MvTier): Promise<Story> {
   const photoUrls: string[] = [];
   for (const [i, p] of photos.entries()) photoUrls.push(await uploadMedia(env.RUNNINGHUB_API_KEY, p.bytes, p.type, `photo${i}.jpg`));
-  return {timing: 'estimated', characters: [], locations: [], photoUrls};
+  return {tier, timing: 'estimated', characters: [], locations: [], photoUrls};
 }
+
+const videoOf = (story: Story | null) => MV_TIERS[story?.tier ?? 'pro'].video;
 
 const SCRIPT_TRIES = 3;
 
@@ -149,7 +153,7 @@ async function stepTiming(env: Env, row: StoryRow, ctx: StoryCtx) {
     const len = s.end - s.start;
     return {
       idx, start: s.start, end: s.end, section: s.section, lines: s.lines, lineTimes: s.lineTimes,
-      kind: 'clip', clipSec: CLIP_SECONDS.find(c => c >= Math.ceil(len)) ?? CLIP_SECONDS[CLIP_SECONDS.length - 1],
+      kind: 'clip', clipSec: clipSecondsFor(videoOf(story), len),
       imageUrl: null, clipUrl: null, endImageUrl: null, status: 'pending',
       measured: s.lineTimes.every(([a], k) => measuredText.has(`${a}|${s.lines[k]}`)),
       chr: [], loc: null, startPrompt: '', endPrompt: '', motion: '', tries: 0, endTries: 0, clipTries: 0,
@@ -460,6 +464,7 @@ async function freshFrames(env: Env, row: StoryRow, s: StoryScene) {
 
 async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
   const scenes: StoryScene[] = JSON.parse(row.scenes);
+  const video = videoOf(row.story ? JSON.parse(row.story) : null);
   const key = env.RUNNINGHUB_API_KEY;
   let cost = row.cost_usd;
   const giveUp = (s: StoryScene) => Object.assign(s, {kind: 'still', clipSec: 0, status: 'done', clipTask: null});
@@ -496,7 +501,7 @@ async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
     if (s.status !== 'framed' || s.clipTask) continue;
     try {
       await freshFrames(env, row, s);
-      s.clipTask = await submitClip(key, {image: s.rhImage!, lastFrame: s.rhEnd ?? undefined, prompt: s.motion, seconds: s.clipSec, ratio: row.ratio});
+      s.clipTask = await submitVideo(key, video, {image: s.rhImage!, lastFrame: s.rhEnd ?? undefined, prompt: s.motion, seconds: s.clipSec, ratio: row.ratio});
       s.status = 'clip';
       inflight++;
     } catch (e) {
@@ -510,7 +515,7 @@ async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
 }
 
 // ── View ────────────────────────────────────────────────────────────────────
-export function storyView(row: StoryRow): Pick<MvView, 'sheets' | 'logline' | 'timing' | 'clipCostUsd'> & {scenes: MvScene[]} {
+export function storyView(row: StoryRow): Pick<MvView, 'sheets' | 'logline' | 'timing' | 'clipCostUsd' | 'tier'> & {scenes: MvScene[]} {
   const story: Story | null = row.story ? JSON.parse(row.story) : null;
   const scenes: StoryScene[] = JSON.parse(row.scenes);
   const sheets = story
@@ -523,7 +528,8 @@ export function storyView(row: StoryRow): Pick<MvView, 'sheets' | 'logline' | 't
     sheets,
     logline: story?.logline ?? null,
     timing: story ? story.timing : null,
-    clipCostUsd: scenes.reduce((sum, s) => sum + (s.kind === 'clip' ? s.clipSec * MV_COST.clipPerSec : 0), 0),
+    tier: story?.tier ?? null,
+    clipCostUsd: clipCostUsd(videoOf(story), scenes),
     scenes: scenes.map(s => ({
       idx: s.idx, start: s.start, end: s.end, section: s.section, lines: s.lines, kind: s.kind, clipSec: s.clipSec,
       imageUrl: s.imageUrl, clipUrl: s.clipUrl, status: s.status, endImageUrl: s.endImageUrl ?? null, action: s.action, lineTimes: s.lineTimes,

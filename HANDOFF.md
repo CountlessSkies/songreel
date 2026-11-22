@@ -43,32 +43,19 @@ Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI vi�
    - `GET /api/orders/:id` và cron hỏi tiếp khi đang thu. Lỗi thì gọi lại endpoint để thu lần nữa.
    - Đo thật trên local: xong sau khoảng 50 giây.
 
-## MV Amateur (`src/worker/mv.ts`, `src/shared/mv.ts`)
+## MV kể chuyện (`src/worker/mvStory.ts`, `mv.ts`, `src/shared/mv.ts`)
 
-Khách đã có bài → chọn mức MV, khổ 9:16/16:9, tuỳ chọn tối đa 3 ảnh người nhận → server dựng cảnh → trình duyệt ghép video. Mục này là kiểu **lai** (mức Amateur); mức Pro/Cinematic xem mục "MV kể chuyện" bên dưới.
+Khách đã có bài → vào Xưởng MV, chọn mức, khổ 9:16/16:9, tuỳ chọn tối đa 3 ảnh người nhận → server dựng storyboard → khách duyệt → server quay clip → trình duyệt ghép video. **Cả 3 mức chạy chung pipeline này, chỉ khác model quay video** (`MV_TIERS`):
 
-1. **Chia cảnh** (`planScenes`, dùng chung client/server): mỗi câu hát 1 cảnh, thêm cảnh mở đầu và kết.
-   - Suno không trả mốc thời gian, nên giọng hát được ước lượng chiếm 8%..94% bài, chia đều theo số chữ.
-   - Kiểu **lai**: chỉ cảnh điệp khúc có clip, mua 6s, phần còn lại của cảnh là ảnh tĩnh có Ken Burns.
-   - Kiểu **toàn clip**: mọi cảnh là clip 4–15s.
-2. **Director:** GPT-6.1 Sol viết bible gồm nhân vật, bối cảnh, look, cùng prompt ảnh và prompt chuyển động cho từng cảnh. Prompt nằm ở `prompts.ts`, chỉ phía server.
-3. **Ảnh nhân vật gốc:** Nano Banana 2.1 official (`rhart-image-n-nb21-official`, $0.03/ảnh). Có ảnh khách thì đưa vào làm reference. Ảnh khách lưu ở KV `mvphoto/` 7 ngày và không phục vụ ra ngoài.
-4. **Ảnh từng cảnh:** Nano Banana 2.1 image-to-image, dùng ảnh gốc làm reference để giữ mặt.
-5. **Clip:** Seedance 2.0 mini i2v 720p, endpoint trong registry `rhart-video/sparkvideo-2.0-mini/image-to-video` (tên trong registry: "seedance-2.0-mini"). Endpoint cũ `bytedance/seedance-2.0-global-mini` không có trong registry nên đã bỏ.
-   - Tính tiền theo giây: đo thật 6 giây 720p hết $0.60.
-   - Có khung cuối (`lastFrameUrl`), 4–15 giây. Bật `realPersonMode: true`.
-6. **Xử lý song song và lỗi:** chạy tối đa 8 task cùng lúc cho mỗi MV.
-   - Ảnh lỗi 2 lần thì dùng ảnh gốc thay vào.
-   - Clip lỗi 2 lần thì cảnh đó thành ảnh tĩnh.
-   - Quá 45 phút thì báo lỗi.
-7. **Ghép video:** làm trên trình duyệt (`src/web/mvRender.ts`).
-   - Canvas vẽ: thẻ "Dành tặng", ảnh Ken Burns, clip, chuyển cảnh mờ dần, chữ karaoke, logo.
-   - Xuất bằng `canvas.captureStream` + `MediaRecorder`, ưu tiên MP4, mất đúng bằng thời lượng bài.
+| Mức | Giá bán tạm | Video | Chi phí AI ước tính (bài 3 phút) |
+|---|---|---|---|
+| Amateur | +299.000đ | Veo 3.1 fast, khung đầu + cuối (`rhart-video-v3.1-fast/start-end-to-video`), clip luôn 8s, tính theo lượt (~$0.21/clip, giá tham khảo của kit, chưa đo thật) | ~$6.5 |
+| Pro | +1.000.000đ | Seedance 2.0 mini 720p (`rhart-video/sparkvideo-2.0-mini/image-to-video`), 4–15s theo đúng độ dài cảnh, $0.10/giây (đo thật) | ~$20 |
+| Cinematic | +2.500.000đ | Tạm giống Pro. Thiết kế ghi Seedance 2.5 (đắt gấp 3) | ~$20 |
 
-Giá bán tạm theo bản ref: Amateur +299k, Pro +1.000.000đ, Cinematic +2.500.000đ (`MV_TIERS` trong `src/shared/mv.ts`).
-- Amateur chạy kiểu **lai** (khoảng $5 cho bài 3 phút). Pro và Cinematic cùng chạy kiểu **story**. Kiểu **toàn clip** cũ vẫn còn trong code nhưng không mức nào dùng.
-
-## MV kể chuyện: mức Pro/Cinematic (`src/worker/mvStory.ts`)
+Thiết kế v1.6.1 còn ghi Amateur dùng ảnh Nano Banana Pro và Pro dùng Gemini Omni Flash 1.2; app dùng Seedream 5.5 cho ảnh mọi mức, và Gemini Omni 1.2 không có trên RunningHub.
+Cảnh dài hơn clip (Veo luôn 8s) thì sau khi clip hết, video đứng ở khung cuối (`mvRender.ts`).
+Pipeline cũ (kiểu "lai" và "toàn clip": Nano Banana, mỗi câu 1 ảnh, mốc lời ước lượng) đã gỡ ngày 2026-11-23. MV cũ đã dựng xong vẫn mở xem và xuất video được.
 
 Làm theo `ref/CAM_Creative_Pipeline_MV_Online.md` của director, chạy hết trên RunningHub, chỉ Whisper là của OpenAI. Mỗi bước là một `stage` trong bảng `mvs`, được `GET /api/mv/:id` và cron đẩy tiếp.
 
@@ -82,7 +69,8 @@ Làm theo `ref/CAM_Creative_Pipeline_MV_Online.md` của director, chạy hết 
 4. **`frames`:** Seedream 5.5 vẽ khung đầu (tham chiếu: sheet nhân vật + bối cảnh) rồi khung cuối (tham chiếu: khung đầu + sheet nhân vật). Khoảng $0.036 mỗi ảnh.
 5. **`review`:** dừng lại, không tính giờ. Xưởng MV hiện storyboard; phòng chiếu phát khung hình trên nhạc như animatic.
    - Khách bấm "Duyệt và quay video" → `POST /api/mv/:id/approve` (cần mã truy cập).
-6. **`clips`:** Seedance 2.0 mini quay mỗi shot từ khung đầu tới khung cuối, không tiếng. Link RunningHub quá 20 giờ thì upload lại khung từ KV.
+6. **`clips`:** quay mỗi shot từ khung đầu tới khung cuối bằng model của mức MV (bảng trên); tiếng của clip bị tắt khi ghép. Link RunningHub quá 20 giờ thì upload lại khung từ KV.
+   - Bước kịch bản gọi LLM dạng stream (proxy của RunningHub cắt yêu cầu không stream sau 100s, lỗi 524) và tự thử lại tối đa 3 lần.
 7. **Lỗi và giới hạn:**
    - Mỗi ảnh/clip thử tối đa 2 lần. Khung đầu hỏng thì dùng ảnh bối cảnh; khung cuối hỏng thì quay chỉ với khung đầu; clip hỏng thì cảnh thành ảnh tĩnh.
    - Từ lúc tạo tới storyboard tối đa 40 phút; từ lúc duyệt tới xong clip tối đa 60 phút.
@@ -126,8 +114,7 @@ CLOUDFLARE_ACCOUNT_ID=6a959e87aaf889d75de1f587de9f89cb npm run deploy
 - `suno_test.py`: gọi thử Suno trực tiếp, tải mp3 về `out/suno/`.
 - `bench_lyrics.py`: benchmark viết lời nhiều model, xuất JSON + HTML vào `out/bench/`.
 - `e2e_orders.py`: tạo đơn thật trên URL deploy cho từng model rồi poll đến khi xong (tốn tiền thật).
-- `mv_test.py`: gọi thử 1 ảnh và 1 clip để đo giá và thời gian.
-- `e2e_mv.py <base> <order-id> [hybrid|full|story] [9:16|16:9]`: dựng 1 MV thật cho 1 đơn đã xong (tốn tiền thật). Kiểu story dừng ở bước duyệt storyboard.
+- `e2e_mv.py <base> <order-id> [amateur|pro|cinematic] [9:16|16:9]`: dựng 1 MV thật cho 1 đơn đã xong tới bước duyệt storyboard (~$2, tốn tiền thật).
 - `align_check.ts`: kiểm tra căn lời và chia shot trên 1 kết quả Whisper.
 
 ## Chưa làm / chưa kiểm chứng

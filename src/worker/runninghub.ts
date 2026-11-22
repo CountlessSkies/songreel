@@ -142,14 +142,6 @@ export function submitSunoCustom(apiKey: string, s: SunoInput): Promise<string> 
   });
 }
 
-/** rhart-image-n-nb21-official: Nano Banana 2.1 (anh 1k). Co anh tham chieu (URL da upload) thi image-to-image. */
-export function submitImage(apiKey: string, o: {prompt: string; refs?: string[]; aspectRatio: string}): Promise<string> {
-  const base = 'rhart-image-n-nb21-official';
-  return o.refs?.length
-    ? submit(apiKey, `${base}/image-to-image`, {imageUrls: o.refs, prompt: o.prompt, resolution: '1k', aspectRatio: o.aspectRatio})
-    : submit(apiKey, `${base}/text-to-image`, {prompt: o.prompt, resolution: '1k', aspectRatio: o.aspectRatio});
-}
-
 /** seedream-v5.5: anh theo kich thuoc pixel (khong co aspectRatio). Co anh tham chieu thi image-to-image (da thu 2 anh). */
 export function submitSeedream(apiKey: string, o: {prompt: string; refs?: string[]; width: number; height: number}): Promise<string> {
   const base = {prompt: o.prompt, width: o.width, height: o.height, outputFormat: 'jpeg', watermark: 'false'};
@@ -161,14 +153,33 @@ export function submitSeedream(apiKey: string, o: {prompt: string; refs?: string
 /** Cac do dai clip ma Seedance 2.0 mini nhan (LIST trong registry). */
 export const CLIP_SECONDS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
+export type ClipInput = {image: string; lastFrame?: string; prompt: string; seconds: number; ratio: '9:16' | '16:9'};
+
+/** Quay 1 clip tu khung dau (va khung cuoi) bang model cua muc MV. */
+export function submitVideo(apiKey: string, model: 'veo-fast' | 'seedance-mini', o: ClipInput): Promise<string> {
+  return model === 'veo-fast' ? submitVeoFast(apiKey, o) : submitSeedanceMini(apiKey, o);
+}
+
 /**
- * rhart-video/sparkvideo-2.0-mini/image-to-video (registry: "seedance-2.0-mini"), 720p, khong tieng.
+ * rhart-video-v3.1-fast/start-end-to-video (registry: "google/veo3.1-fast/start-end-to-video"): 720p, clip luon 8s,
+ * tinh tien theo luot. Anh nhan JPG/PNG (Seedream xuat jpeg). Model tu tao tieng; ghep video tren trinh duyet da tat tieng clip.
+ */
+function submitVeoFast(apiKey: string, o: ClipInput): Promise<string> {
+  return submit(apiKey, 'rhart-video-v3.1-fast/start-end-to-video', {
+    prompt: o.prompt,
+    firstFrameUrl: o.image,
+    ...(o.lastFrame ? {lastFrameUrl: o.lastFrame} : {}),
+    aspectRatio: o.ratio,
+    duration: '8',
+    resolution: '720p',
+  });
+}
+
+/**
+ * rhart-video/sparkvideo-2.0-mini/image-to-video (registry: "seedance-2.0-mini"), 720p, khong tieng, 4-15s.
  * Co `lastFrame` thi dung che do khung dau + khung cuoi.
  */
-export function submitClip(
-  apiKey: string,
-  o: {image: string; lastFrame?: string; prompt: string; seconds: number; ratio: '9:16' | '16:9'},
-): Promise<string> {
+function submitSeedanceMini(apiKey: string, o: ClipInput): Promise<string> {
   const sec = CLIP_SECONDS.find(s => s >= Math.round(o.seconds)) ?? CLIP_SECONDS[CLIP_SECONDS.length - 1];
   return submit(apiKey, 'rhart-video/sparkvideo-2.0-mini/image-to-video', {
     prompt: o.prompt,

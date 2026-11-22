@@ -14,11 +14,12 @@ export function createMedia(): Media {
 /** Tai truoc anh va clip cua cac canh da xong. */
 export function syncMedia(m: Media, scenes: MvScene[]) {
   for (const s of scenes) {
-    if (s.imageUrl && !m.imgs.has(s.imageUrl)) {
+    for (const url of [s.imageUrl, s.endImageUrl]) {
+      if (!url || m.imgs.has(url)) continue;
       const img = new Image();
       img.decoding = 'async';
-      img.src = s.imageUrl;
-      m.imgs.set(s.imageUrl, img);
+      img.src = url;
+      m.imgs.set(url, img);
     }
     if (s.clipUrl && s.status === 'done' && !m.vids.has(s.clipUrl)) {
       const v = document.createElement('video');
@@ -36,6 +37,7 @@ export function mediaReady(m: Media, scenes: MvScene[]) {
   return scenes.every(
     s =>
       (!s.imageUrl || m.imgs.get(s.imageUrl)?.complete) &&
+      (!s.endImageUrl || m.imgs.get(s.endImageUrl)?.complete) &&
       (!s.clipUrl || s.status !== 'done' || (m.vids.get(s.clipUrl)?.readyState ?? 0) >= 3),
   );
 }
@@ -107,6 +109,13 @@ function drawScene(
     ctx.globalAlpha = a;
     cover(ctx, img, W, H, 1.04 + 0.1 * p, -0.02 * p, -0.03 * p);
   };
+  // Sau khi clip chay het: dung yen o khung cuoi (khong zoom de khop hinh cuoi cua clip)
+  const endImg = s.endImageUrl ? m.imgs.get(s.endImageUrl) : undefined;
+  const drawHold = (a: number) => {
+    if (!endImg?.complete || a <= 0) return drawStill(a);
+    ctx.globalAlpha = a;
+    cover(ctx, endImg, W, H);
+  };
 
   if (vid && vid.readyState >= 2 && local < clipLen) {
     live.add(vid);
@@ -115,12 +124,13 @@ function drawScene(
     if (!isPlaying && !vid.paused) vid.pause();
     ctx.globalAlpha = alpha;
     cover(ctx, vid, W, H);
-    // Clip het truoc canh (kieu lai): mo dan sang anh tinh
+    // Clip het truoc canh: mo dan sang khung cuoi (chinh la hinh ket cua clip) hoac anh tinh
     const tail = clipLen - local;
-    if (tail < FADE_SEC && clipLen < s.end - s.start - 0.2) drawStill(alpha * (1 - tail / FADE_SEC));
+    if (tail < FADE_SEC && clipLen < s.end - s.start - 0.2) drawHold(alpha * (1 - tail / FADE_SEC));
     return;
   }
-  drawStill(alpha);
+  if (vid && clipLen && local >= clipLen) drawHold(alpha);
+  else drawStill(alpha);
 }
 
 /** Cau dang hat trong canh. Co moc do (lineTimes) thi theo moc, khong thi chia deu canh. */

@@ -1,8 +1,8 @@
 import type {OrderView} from '../shared/catalog';
-import {estimateCostUsd, planScenes, type MvMode, type MvRatio, type MvScene, type MvView} from '../shared/mv';
+import {clipCostUsd, estimateCostUsd, MV_TIERS, planScenes, type MvRatio, type MvScene, type MvTier, type MvView} from '../shared/mv';
 import {MOCK} from './api';
 
-export type MvRequest = {mode: MvMode; ratio: MvRatio; takeIdx: number; durationSec: number; photos: File[]};
+export type MvRequest = {tier: MvTier; ratio: MvRatio; takeIdx: number; durationSec: number; photos: File[]};
 
 /** Thu nho anh ve canh dai 1280px, JPEG, de gui len nhe va vua lam reference. */
 async function shrink(f: File): Promise<Blob> {
@@ -38,7 +38,7 @@ export async function createMv(order: OrderView, req: MvRequest, passcode: strin
   }
   const fd = new FormData();
   fd.set('orderId', order.id);
-  fd.set('mode', req.mode);
+  fd.set('tier', req.tier);
   fd.set('ratio', req.ratio);
   fd.set('take', String(req.takeIdx));
   fd.set('duration', String(req.durationSec));
@@ -58,13 +58,11 @@ export async function getMv(id: string): Promise<MvView> {
 // ── Gia lap: anh/clip that tu lan chay thu, xoay vong cho cac canh ──
 const IMAGES = ['/mock/mv/s1.jpg', '/mock/mv/s2.jpg', '/mock/mv/s3.jpg', '/mock/mv/s4.jpg', '/mock/mv/s5.jpg'];
 const CLIPS = ['/mock/mv/clip1.mp4', '/mock/mv/clip2.mp4'];
-const IMAGE_MS = 700;
-const CLIP_MS = 1600;
 
 /** Gia lap MV ke chuyen: ve khung dau/cuoi lan luot -> cho duyet -> quay clip. */
 function mockStory(id: string, m: {order: OrderView; req: MvRequest; start: number; approvedAt?: number}): MvView {
   const dur = m.order.takes[m.req.takeIdx]?.durationSec ?? 180;
-  const plan = planScenes(m.order.lyrics ?? [], dur, 'story');
+  const plan = planScenes(m.order.lyrics ?? [], dur, m.req.tier);
   const t = Date.now() - m.start;
   const framesAt = (i: number) => 1500 + (i + 1) * 400;
   const allFramed = t >= framesAt(plan.length - 1);
@@ -82,55 +80,27 @@ function mockStory(id: string, m: {order: OrderView; req: MvRequest; start: numb
       status,
     };
   });
-  const clipCostUsd = plan.reduce((s, p) => s + p.clipSec * 0.1, 0);
+  const clipCost = clipCostUsd(MV_TIERS[m.req.tier].video, plan);
   return {
     id,
     orderId: m.order.id,
     mode: 'story',
+    tier: m.req.tier,
     ratio: m.req.ratio,
     take: m.req.takeIdx,
     status: scenes.every(s => s.status === 'done') ? 'ready' : allFramed && sinceApprove < 0 ? 'review' : 'running',
     scenes: t < 1500 ? [] : scenes,
-    costUsd: estimateCostUsd(plan, 'story') - (sinceApprove < 0 ? clipCostUsd : 0),
+    costUsd: estimateCostUsd(plan, m.req.tier) - (sinceApprove < 0 ? clipCost : 0),
     error: null,
     sheets: t < 1000 ? [] : [{label: `Nhân vật · ${m.order.recipient}`, url: IMAGES[0]}, {label: 'Bối cảnh 1', url: IMAGES[1]}],
     logline: 'Người con đi xa nhớ những buổi sáng bên mẹ, và quyết định về nhà đúng ngày sinh nhật mẹ.',
     timing: 'measured',
-    clipCostUsd,
+    clipCostUsd: clipCost,
   };
 }
 
 function mockMv(id: string): MvView {
   const m = mockMvs.get(id);
   if (!m) throw new Error('Không tìm thấy MV');
-  if (m.req.mode === 'story') return mockStory(id, m);
-  const dur = m.order.takes[m.req.takeIdx]?.durationSec ?? 180;
-  const plan = planScenes(m.order.lyrics ?? [], dur, m.req.mode);
-  const t = Date.now() - m.start;
-  // Anh ve lan luot, xong anh nao thi quay clip canh do (song song toi da 3 clip)
-  let clipIdx = 0;
-  const scenes: MvScene[] = plan.map((p, i) => {
-    const imgAt = (i + 1) * IMAGE_MS;
-    const hasImage = t >= imgAt;
-    let status: MvScene['status'] = hasImage ? 'done' : i * IMAGE_MS <= t ? 'image' : 'pending';
-    let clipUrl: string | null = null;
-    if (p.kind === 'clip' && hasImage) {
-      const k = clipIdx++;
-      const clipDone = t >= imgAt + CLIP_MS * (1 + Math.floor(k / 3));
-      status = clipDone ? 'done' : 'clip';
-      clipUrl = CLIPS[k % CLIPS.length];
-    }
-    return {...p, imageUrl: hasImage ? IMAGES[i % IMAGES.length] : null, clipUrl, status};
-  });
-  return {
-    id,
-    orderId: m.order.id,
-    mode: m.req.mode,
-    ratio: m.req.ratio,
-    take: m.req.takeIdx,
-    status: scenes.every(s => s.status === 'done') ? 'ready' : 'running',
-    scenes,
-    costUsd: estimateCostUsd(plan),
-    error: null,
-  };
+  return mockStory(id, m);
 }

@@ -1,56 +1,57 @@
 import type {LyricSection} from './catalog';
 
 /**
- * Kieu dung MV:
- * - hybrid: anh + clip o dieu khuc (Amateur)
- * - full: moi canh deu clip, mot nhan vat (pipeline cu, khong con muc nao dung)
- * - story: pipeline ke chuyen cua director (ref/CAM_Creative_Pipeline_MV_Online.md): moc loi Whisper,
- *   kich ban + shot list, character/location sheet, khung dau + khung cuoi tung canh, duyet storyboard, roi moi quay clip.
+ * Kieu dung MV. Moi MV moi deu la 'story': pipeline ke chuyen cua director (ref/CAM_Creative_Pipeline_MV_Online.md):
+ * moc loi Whisper, kich ban + shot list, character/location sheet, khung dau + khung cuoi tung canh,
+ * duyet storyboard roi moi quay clip. 'hybrid' va 'full' la pipeline cu da go, chi con de xem lai MV cu.
  */
 export type MvMode = 'hybrid' | 'full' | 'story';
 export type MvRatio = '9:16' | '16:9';
 
-/** Ba muc MV ban cho khach, theo ref/solsongs-v1.6.1.html. Pro va Cinematic cung dung pipeline 'story'. */
+/** Ba muc MV ban cho khach, theo ref/solsongs-v1.6.1.html. Cung pipeline ke chuyen, khac model quay video. */
 export type MvTier = 'amateur' | 'pro' | 'cinematic';
 
-export const MV_TIERS: Record<MvTier, {label: string; price: number; mode: MvMode; description: string}> = {
+/** Model quay video. Endpoint lay tu model-registry.public.json cua RunningHub. */
+export type VideoModel = 'veo-fast' | 'seedance-mini';
+
+export const MV_TIERS: Record<MvTier, {label: string; price: number; video: VideoModel; description: string}> = {
   amateur: {
     label: 'Amateur',
     price: 299_000,
-    mode: 'hybrid',
-    description: 'Điệp khúc là video chuyển động, các đoạn khác là ảnh có máy quay lướt nhẹ.',
+    video: 'veo-fast',
+    description: 'MV kể chuyện theo lời, nhân vật và bối cảnh nhất quán, duyệt storyboard trước khi quay. Video Veo 3.1 fast, mỗi cảnh 8 giây.',
   },
   pro: {
     label: 'Pro',
     price: 1_000_000,
-    mode: 'story',
-    description: 'MV kể chuyện: kịch bản theo lời, nhân vật và bối cảnh nhất quán, duyệt storyboard trước khi quay video.',
+    video: 'seedance-mini',
+    description: 'MV kể chuyện như Amateur, video Seedance 2.0 quay trọn từng cảnh theo đúng độ dài câu hát.',
   },
   cinematic: {
     label: 'Cinematic',
     price: 2_500_000,
-    mode: 'story',
-    description: 'MV kể chuyện như mức Pro. Bản thử nghiệm: hiện dựng giống mức Pro.',
+    video: 'seedance-mini',
+    description: 'MV kể chuyện như Pro. Bản thử nghiệm: hiện dựng giống mức Pro.',
   },
 };
 
 export const isMvTier = (v: string | null): v is MvTier => !!v && v in MV_TIERS;
 
-/** Gia RunningHub do that ngay 2026-11-19 (USD). */
+/** Gia RunningHub (USD), do that 2026-11-22/23 hoac theo bang gia tham khao cua developer kit. */
 export const MV_COST = {
-  image: 0.03, // Nano Banana 2.1 official, 1k
-  storyImage: 0.04, // Seedream 5.5 + phi anh tham chieu, do that 2026-11-22
-  storySheets: 4, // uoc tinh so anh character/location sheet
-  clipPerSec: 0.1, // Seedance 2.0 mini i2v 720p
+  image: 0.04, // Seedream 5.5 + phi anh tham chieu, do that
+  sheets: 4, // uoc tinh so anh character/location sheet
+  seedancePerSec: 0.1, // Seedance 2.0 mini 720p, do that $0.60 cho 6s
+  veoPerClip: 0.21, // Veo 3.1 fast start-end, bang gia tham khao 1.5 te/luot (clip 8s)
 };
 
-/** Clip Seedance 2.0 dai 4-15s. Kieu lai chi mua 6s dau canh, phan con lai la anh co Ken Burns. */
+/** Clip Seedance 2.0 mini dai 4-15s; Veo 3.1 fast luon 8s. */
 export const CLIP_MIN = 4;
 export const CLIP_MAX = 15;
-export const HYBRID_CLIP = 6;
+export const VEO_SECONDS = 8;
 
 export type SceneKind = 'clip' | 'still';
-/** 'framed': da co khung dau (va khung cuoi), cho duyet storyboard roi moi quay clip (chi kieu story). */
+/** 'framed': da co khung dau (va khung cuoi), cho duyet storyboard roi moi quay clip. */
 export type SceneStatus = 'pending' | 'image' | 'framed' | 'clip' | 'done' | 'failed';
 
 export type MvScene = {
@@ -60,14 +61,14 @@ export type MvScene = {
   section: string;
   lines: string[];
   kind: SceneKind;
-  /** So giay clip phai mua (0 voi canh anh). */
+  /** So giay clip quay (0 voi canh anh). */
   clipSec: number;
   imageUrl: string | null;
   clipUrl: string | null;
   status: SceneStatus;
-  /** Kieu story: khung cuoi cua canh. */
+  /** Khung cuoi cua canh: clip ket thuc o day, canh dai hon clip thi dung o khung nay. */
   endImageUrl?: string | null;
-  /** Kieu story: chi dao dien xuat bang tieng Viet cho storyboard. */
+  /** Chi dao dien xuat bang tieng Viet cho storyboard. */
   action?: string;
   /** Moc [bat dau, ket thuc] tung cau trong canh (do bang Whisper). Khong co thi chia deu canh. */
   lineTimes?: [number, number][];
@@ -77,68 +78,71 @@ export type MvView = {
   id: string;
   orderId: string;
   mode: MvMode;
+  /** Muc MV khach chon (MV cu truoc khi co muc thi null). */
+  tier: MvTier | null;
   ratio: MvRatio;
   take: number;
-  /** 'review': storyboard xong, cho khach duyet roi moi quay clip (kieu story). */
+  /** 'review': storyboard xong, cho khach duyet roi moi quay clip. */
   status: 'running' | 'review' | 'ready' | 'failed';
   scenes: MvScene[];
   costUsd: number;
   error: string | null;
-  /** Kieu story: anh nhan vat va boi canh dung lam tham chieu. */
+  /** Anh nhan vat va boi canh dung lam tham chieu. */
   sheets?: {label: string; url: string}[];
-  /** Kieu story: cau tom tat cau chuyen. */
+  /** Cau tom tat cau chuyen. */
   logline?: string | null;
   /** Moc loi do tu giong hat hay uoc luong. */
   timing?: 'measured' | 'estimated' | null;
-  /** Kieu story: chi phi quay clip uoc tinh (USD), hien o buoc duyet. */
+  /** Chi phi quay clip uoc tinh (USD), hien o buoc duyet. */
   clipCostUsd?: number;
 };
 
+/** So giay clip cua 1 canh theo model video. */
+export function clipSecondsFor(video: VideoModel, sceneSec: number) {
+  if (video === 'veo-fast') return VEO_SECONDS;
+  return Math.min(CLIP_MAX, Math.max(CLIP_MIN, Math.ceil(sceneSec)));
+}
+
+/** Chi phi quay clip (USD) cho cac canh. */
+export function clipCostUsd(video: VideoModel, scenes: {kind: SceneKind; clipSec: number}[]) {
+  const clips = scenes.filter(s => s.kind === 'clip');
+  return video === 'veo-fast' ? clips.length * MV_COST.veoPerClip : clips.reduce((sum, s) => sum + s.clipSec * MV_COST.seedancePerSec, 0);
+}
+
+/** Chi phi AI uoc tinh (USD): 2 khung moi canh + cac sheet + clip. */
+export function estimateCostUsd(scenes: {kind: SceneKind; clipSec: number}[], tier: MvTier) {
+  return clipCostUsd(MV_TIERS[tier].video, scenes) + (scenes.length * 2 + MV_COST.sheets) * MV_COST.image;
+}
+
 /**
- * Chia bai thanh canh. Suno khong tra moc thoi gian tung cau nen uoc luong:
- * giong hat chiem khoang 8%..94% bai, cac cau chia deu theo so chu. Moi cau 1 canh (~6-10s),
- * them 1 canh mo dau va 1 canh ket. Toan clip: canh nao dai hon 15s thi tach doi.
+ * Canh du kien truoc khi dung (xem truoc o Xuong MV va che do gia lap). Moc loi uoc luong:
+ * giong hat chiem khoang 8%..94% bai, cac cau chia theo so chu, them canh mo dau va ket, canh dai hon 15s thi tach.
+ * Ban that chia lai theo moc do bang Whisper (src/worker/align.ts).
  */
-export function planScenes(lyrics: LyricSection[], durationSec: number, mode: MvMode): Omit<MvScene, 'imageUrl' | 'clipUrl' | 'status'>[] {
-  const lines = lyrics.flatMap(s => s.lines.map(text => ({text, section: s.name, chorus: s.kind === 'chorus'})));
+export function planScenes(lyrics: LyricSection[], durationSec: number, tier: MvTier): Omit<MvScene, 'imageUrl' | 'clipUrl' | 'status'>[] {
+  const lines = lyrics.flatMap(s => s.lines.map(text => ({text, section: s.name})));
   const vStart = durationSec * 0.08;
   const vEnd = durationSec * 0.94;
   const weights = lines.map(l => Math.max(3, l.text.split(/\s+/).length));
   const total = weights.reduce((a, b) => a + b, 0);
   let t = vStart;
-  const timed = lines.map((l, i) => {
+  type Raw = {start: number; end: number; section: string; lines: string[]};
+  const raw: Raw[] = [{start: 0, end: vStart, section: 'Mở đầu', lines: []}];
+  lines.forEach((l, i) => {
     const dur = ((vEnd - vStart) * weights[i]) / total;
-    const r = {...l, start: t, end: t + dur};
+    raw.push({start: t, end: t + dur, section: l.section, lines: [l.text]});
     t += dur;
-    return r;
   });
-
-  type Raw = {start: number; end: number; section: string; lines: string[]; chorus: boolean};
-  const raw: Raw[] = [{start: 0, end: vStart, section: 'Mở đầu', lines: [], chorus: false}];
-  for (const a of timed) raw.push({start: a.start, end: a.end, section: a.section, lines: [a.text], chorus: a.chorus});
-  raw.push({start: vEnd, end: durationSec, section: 'Kết', lines: [], chorus: false});
+  raw.push({start: vEnd, end: durationSec, section: 'Kết', lines: []});
 
   const out: Raw[] = [];
   for (const r of raw) {
     const len = r.end - r.start;
-    if (mode !== 'hybrid' && len > CLIP_MAX) {
-      const n = Math.ceil(len / CLIP_MAX);
-      for (let k = 0; k < n; k++) {
-        out.push({...r, start: r.start + (len * k) / n, end: r.start + (len * (k + 1)) / n, lines: k === 0 ? r.lines : []});
-      }
-    } else out.push(r);
+    const n = Math.ceil(len / CLIP_MAX);
+    for (let k = 0; k < n; k++) out.push({...r, start: r.start + (len * k) / n, end: r.start + (len * (k + 1)) / n, lines: k === 0 ? r.lines : []});
   }
-  return out.map((r, idx) => {
-    const kind: SceneKind = mode !== 'hybrid' || r.chorus ? 'clip' : 'still';
-    const cap = mode !== 'hybrid' ? CLIP_MAX : HYBRID_CLIP;
-    const clipSec = kind === 'clip' ? Math.min(cap, Math.max(CLIP_MIN, Math.round(r.end - r.start))) : 0;
-    return {idx, start: r.start, end: r.end, section: r.section, lines: r.lines, kind, clipSec};
-  });
-}
-
-/** Chi phi AI uoc tinh (USD). Kieu story: 2 khung moi canh + cac sheet, clip moi canh. */
-export function estimateCostUsd(scenes: {clipSec: number}[], mode: MvMode = 'hybrid') {
-  const clips = scenes.reduce((sum, s) => sum + s.clipSec * MV_COST.clipPerSec, 0);
-  if (mode === 'story') return clips + (scenes.length * 2 + MV_COST.storySheets) * MV_COST.storyImage;
-  return clips + scenes.length * MV_COST.image;
+  const video = MV_TIERS[tier].video;
+  return out.map((r, idx) => ({
+    idx, start: r.start, end: r.end, section: r.section, lines: r.lines, kind: 'clip' as const, clipSec: clipSecondsFor(video, r.end - r.start),
+  }));
 }

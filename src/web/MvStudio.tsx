@@ -114,7 +114,7 @@ export function MvStudio(props: {
   // Truoc khi dung: hien cac canh du kien de khach xem truoc phu de tren bai
   const planned = useMemo<MvScene[]>(
     () =>
-      planScenes(order.lyrics ?? [], dur || take.durationSec || 180, MV_TIERS[tier].mode).map(p => ({
+      planScenes(order.lyrics ?? [], dur || take.durationSec || 180, tier).map(p => ({
         ...p, imageUrl: null, clipUrl: null, status: 'pending' as const,
       })),
     [order.lyrics, dur, take.durationSec, tier],
@@ -123,7 +123,6 @@ export function MvStudio(props: {
   const isReady = mv?.status === 'ready';
   const isFailed = mv?.status === 'failed';
   const isReview = mv?.status === 'review';
-  const isStory = MV_TIERS[isSetup ? tier : props.tier].mode === 'story';
   const [W, H] = ratio === '9:16' ? [720, 1280] : [1280, 720];
   const title = order.title ?? 'Bài hát';
 
@@ -268,7 +267,7 @@ export function MvStudio(props: {
   const create = () => {
     audioRef.current?.pause();
     setIsPlaying(false);
-    props.onCreate({mode: MV_TIERS[tier].mode, ratio: pickRatio, takeIdx, durationSec, photos}, tier);
+    props.onCreate({tier, ratio: pickRatio, takeIdx, durationSec, photos}, tier);
   };
   const priceOf = (k: MvTier) => (props.hasFilm && k === 'amateur' ? 'Đã có trong gói' : `+${vnd(MV_TIERS[k].price)}`);
 
@@ -335,8 +334,7 @@ export function MvStudio(props: {
                 </div>
                 <div className="est">
                   <b>{planned.length} cảnh</b>, {planned.filter(s => s.kind === 'clip').length} clip · chi phí AI ước tính ~$
-                  {estimateCostUsd(planned, MV_TIERS[tier].mode).toFixed(2)} ·{' '}
-                  {isStory ? 'storyboard khoảng 5 phút, duyệt xong mới quay video' : 'dựng khoảng 5 đến 10 phút'}
+                  {estimateCostUsd(planned, tier).toFixed(2)} · storyboard khoảng 5 phút, duyệt xong mới quay video
                 </div>
                 {!MOCK && (
                   <div className="f">
@@ -351,7 +349,7 @@ export function MvStudio(props: {
               <>
                 <dl className="facts">
                   <dt>Mức video</dt>
-                  <dd>{MV_TIERS[props.tier].label}</dd>
+                  <dd>{mv.tier ? MV_TIERS[mv.tier].label : 'MV bản cũ'}</dd>
                   <dt>Khung hình</dt>
                   <dd>{mv.ratio === '9:16' ? 'Dọc 9:16' : 'Ngang 16:9'}</dd>
                   <dt>Số cảnh</dt>
@@ -482,9 +480,7 @@ export function MvStudio(props: {
           </div>
           <span className="note">
             {isSetup
-              ? isStory
-                ? 'Cảnh dự kiến. Bản Pro chia cảnh lại theo mốc lời đo từ giọng hát.'
-                : 'Cảnh dự kiến. Bấm “Dựng MV” để AI vẽ ảnh và quay clip cho từng cảnh.'
+              ? 'Cảnh dự kiến. Khi dựng, cảnh được chia lại theo mốc lời đo từ giọng hát.'
               : mv?.mode === 'story'
                 ? 'Mỗi cảnh có khung đầu và khung cuối; video quay từ khung đầu tới khung cuối.'
                 : 'Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.'}

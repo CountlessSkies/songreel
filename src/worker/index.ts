@@ -1,6 +1,6 @@
 import {Hono} from 'hono';
 import type {Answers} from '../shared/catalog';
-import type {MvMode, MvRatio} from '../shared/mv';
+import {isMvTier, type MvRatio} from '../shared/mv';
 import {advanceMv, approveMv, createMv, getMvRow, sweepMv, toMvView} from './mv';
 import {advance, advanceAcoustic, createOrder, getRow, startAcoustic, sweep, toView, validateAnswers, type Env} from './pipeline';
 
@@ -58,9 +58,9 @@ app.post('/api/mv', async c => {
   }
   const form = await c.req.formData().catch(() => null);
   if (!form) return c.json({error: 'Dữ liệu không hợp lệ.'}, 400);
-  const mode = String(form.get('mode')) as MvMode;
+  const tier = String(form.get('tier'));
   const ratio = String(form.get('ratio')) as MvRatio;
-  if (mode !== 'hybrid' && mode !== 'full' && mode !== 'story') return c.json({error: 'Kiểu MV không hợp lệ.'}, 400);
+  if (!isMvTier(tier)) return c.json({error: 'Mức MV không hợp lệ.'}, 400);
   if (ratio !== '9:16' && ratio !== '16:9') return c.json({error: 'Khổ video không hợp lệ.'}, 400);
   const photos: {bytes: ArrayBuffer; type: string}[] = [];
   for (const f of form.getAll('photos')) {
@@ -72,7 +72,7 @@ app.post('/api/mv', async c => {
   try {
     const id = await createMv(c.env, {
       orderId: String(form.get('orderId')),
-      mode,
+      tier,
       ratio,
       take: Number(form.get('take')),
       duration: Number(form.get('duration')),

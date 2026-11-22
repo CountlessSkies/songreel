@@ -1,8 +1,9 @@
-"""Tao 1 MV that cho 1 don da xong roi poll toi khi dung xong. Ton tien that (~$5 kieu lai, ~$20 toan clip cho bai 3 phut).
+"""Tao 1 MV that cho 1 don da xong roi poll toi buoc duyet storyboard (~$2 tien anh). Ton tien that.
 
-Chay: python tools/e2e_mv.py <base-url> <order-id> [hybrid|full|story] [9:16|16:9] [duration-sec]
+Chay: python tools/e2e_mv.py <base-url> <order-id> [amateur|pro|cinematic] [9:16|16:9] [duration-sec]
 Khong truyen duration thi do tu file mp3 cua ban 1 (can ffprobe).
-Kieu story dung o buoc duyet storyboard (~$2); duyet bang POST /api/mv/<id>/approve roi chay lai poll de quay clip.
+Duyet bang POST /api/mv/<id>/approve (header X-Passcode) roi poll GET /api/mv/<id> de quay clip:
+Amateur (Veo 3.1 fast) ~$4.5, Pro (Seedance 2.0 mini) ~$18 cho bai 3 phut.
 """
 import json
 import pathlib
@@ -15,7 +16,7 @@ import uuid
 
 sys.stdout.reconfigure(encoding="utf-8")
 BASE, OID = sys.argv[1], sys.argv[2]
-MODE = sys.argv[3] if len(sys.argv) > 3 else "hybrid"
+TIER = sys.argv[3] if len(sys.argv) > 3 else "amateur"
 RATIO = sys.argv[4] if len(sys.argv) > 4 else "9:16"
 env = dict(l.split("=", 1) for l in (pathlib.Path(__file__).parent.parent / ".dev.vars").read_text(encoding="utf-8").splitlines() if "=" in l)
 UA = {"User-Agent": "solsongs-e2e"}
@@ -40,7 +41,7 @@ def duration():
 
 def create(dur):
     b = uuid.uuid4().hex
-    fields = {"orderId": OID, "mode": MODE, "ratio": RATIO, "take": "0", "duration": f"{dur:.2f}"}
+    fields = {"orderId": OID, "tier": TIER, "ratio": RATIO, "take": "0", "duration": f"{dur:.2f}"}
     body = "".join(f'--{b}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n' for k, v in fields.items()) + f"--{b}--\r\n"
     r = urllib.request.Request(BASE + "/api/mv", data=body.encode(), method="POST",
                                headers={**UA, "Content-Type": f"multipart/form-data; boundary={b}", "X-Passcode": env["POC_PASSCODE"].strip()})
@@ -51,7 +52,7 @@ def create(dur):
 dur = duration()
 t0 = time.time()
 mid = create(dur)
-print(f"mv {mid} duration={dur:.1f}s mode={MODE} ratio={RATIO}", flush=True)
+print(f"mv {mid} duration={dur:.1f}s tier={TIER} ratio={RATIO}", flush=True)
 last = None
 while time.time() - t0 < 50 * 60:
     v = get(f"/api/mv/{mid}")
