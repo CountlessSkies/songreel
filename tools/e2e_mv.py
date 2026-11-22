@@ -1,8 +1,8 @@
 """Tao 1 MV that cho 1 don da xong roi poll toi buoc duyet storyboard (~$2 tien anh). Ton tien that.
 
-Chay: python tools/e2e_mv.py <base-url> <order-id> [amateur|pro|cinematic] [9:16|16:9] [duration-sec]
+Chay: python tools/e2e_mv.py <base-url> <order-id> [amateur|pro|cinematic] [9:16|16:9] [duration-sec] [--approve]
 Khong truyen duration thi do tu file mp3 cua ban 1 (can ffprobe).
-Duyet bang POST /api/mv/<id>/approve (header X-Passcode) roi poll GET /api/mv/<id> de quay clip:
+Co --approve thi tu duyet storyboard roi poll toi khi quay xong clip. Hoac tu duyet bang POST /api/mv/<id>/approve (header X-Passcode):
 Amateur (Veo 3.1 fast) ~$4.5, Pro (Seedance 2.0 mini) ~$18 cho bai 3 phut.
 """
 import json
@@ -15,6 +15,8 @@ import urllib.request
 import uuid
 
 sys.stdout.reconfigure(encoding="utf-8")
+APPROVE = "--approve" in sys.argv
+sys.argv = [a for a in sys.argv if a != "--approve"]
 BASE, OID = sys.argv[1], sys.argv[2]
 TIER = sys.argv[3] if len(sys.argv) > 3 else "amateur"
 RATIO = sys.argv[4] if len(sys.argv) > 4 else "9:16"
@@ -53,19 +55,33 @@ dur = duration()
 t0 = time.time()
 mid = create(dur)
 print(f"mv {mid} duration={dur:.1f}s tier={TIER} ratio={RATIO}", flush=True)
-last = None
-while time.time() - t0 < 50 * 60:
-    v = get(f"/api/mv/{mid}")
-    counts = {}
-    for s in v["scenes"]:
-        counts[s["status"]] = counts.get(s["status"], 0) + 1
-    st = (v["status"], tuple(sorted(counts.items())))
-    if st != last:
-        print(f"[{time.time() - t0:5.0f}s] {v['status']} {counts} cost=${v['costUsd']:.2f}", flush=True)
-        last = st
-    if v["status"] != "running":
-        break
-    time.sleep(8)
+
+
+def poll(limit_s):
+    last = None
+    while time.time() - t0 < limit_s:
+        v = get(f"/api/mv/{mid}")
+        counts = {}
+        for s in v["scenes"]:
+            counts[s["status"]] = counts.get(s["status"], 0) + 1
+        st = (v["status"], tuple(sorted(counts.items())))
+        if st != last:
+            print(f"[{time.time() - t0:5.0f}s] {v['status']} {counts} cost=${v['costUsd']:.2f}", flush=True)
+            last = st
+        if v["status"] != "running":
+            return v
+        time.sleep(8)
+    return v
+
+
+v = poll(50 * 60)
+if APPROVE and v["status"] == "review":
+    print(f"approve: clip cost estimate ${v.get('clipCostUsd', 0):.2f}", flush=True)
+    r = urllib.request.Request(BASE + f"/api/mv/{mid}/approve", data=b"", method="POST",
+                               headers={**UA, "X-Passcode": env["POC_PASSCODE"].strip()})
+    with urllib.request.urlopen(r, timeout=60) as f:
+        f.read()
+    v = poll(time.time() - t0 + 70 * 60)
 if v.get("timing"):
     print(f"timing={v['timing']} logline={v.get('logline')!r} sheets={[s['label'] for s in v.get('sheets') or []]} clipCost=${v.get('clipCostUsd', 0):.2f}")
 clips = [s for s in v["scenes"] if s["kind"] == "clip"]
