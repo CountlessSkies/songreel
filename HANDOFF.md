@@ -61,11 +61,12 @@ Giá bán tạm: lai +299k, toàn clip +699k. Chi phí AI đo cho bài 3 phút: 
 
 ## Frontend (`src/web/`)
 
-- React 19. Trang chủ, bảng hỏi, màn chờ và màn kết quả tự vẽ bằng HTML/CSS lấy từ `ref/solsongs-v1.6.1.html`, không dùng component Astryx:
+- React 19. Trang chủ, bảng hỏi, màn chờ, màn kết quả và Xưởng MV tự vẽ bằng HTML/CSS lấy từ `ref/solsongs-v1.6.1.html`, không dùng component Astryx:
   - `StudioShell.tsx`: thanh trên cùng (logo sóng âm, tab Trang chủ / Bài hát) và lớp bọc `.studio`.
   - `studio.css`: CSS của bản ref lồng trong `.studio`, kèm phần trả lại margin/màu chữ mà reset của Astryx đã xoá. Phần riêng của app nằm ở cuối file.
   - `Wizard` (8 chương, cột tiến trình bên trái), `Waiting`, `Result`.
-- Xưởng MV (`MvStudio.tsx`) vẫn dùng Astryx và 7 theme (nút đổi theme chỉ hiện ở màn này). Font ép về Be Vietnam Pro vì font gốc của các theme thiếu dấu tiếng Việt.
+  - `MvStudio`: thẻ "Nguyên liệu" (thông tin MV, tiến độ, nút tạo file), "Phòng chiếu" (canvas, timeline bấm để tua) và storyboard. Bản ref cho nhập lời, sửa mô tả và tạo lại từng cảnh; app chưa có API đó nên màn này chỉ theo dõi, xem và xuất.
+- Không còn màn nào dùng component Astryx. `main.tsx` vẫn nạp reset và 7 theme của Astryx (CSS của các màn dựa trên reset đó); nút đổi theme bị ẩn.
 - So với bản ref, app bỏ: nút "Kết nối AI", gói acoustic, "Dựng MV từ bài có sẵn", các mức Amateur/Pro/Cinematic. App thêm ở chương 8: chọn AI viết lời và mã truy cập.
 - Màn kết quả:
   - Nghe thử 40s bắt đầu từ khoảng 1/4 bài, vì Suno không trả mốc điệp khúc.

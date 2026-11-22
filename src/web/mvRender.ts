@@ -200,7 +200,7 @@ function drawBrand(ctx: CanvasRenderingContext2D) {
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = u * 0.015;
   ctx.textAlign = 'left';
-  ctx.fillText('SolSongs', u * 0.04, u * 0.07);
+  ctx.fillText('Sol Songs', u * 0.04, u * 0.07);
   ctx.restore();
 }
 

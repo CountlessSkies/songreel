@@ -26,42 +26,6 @@ html, body, #root { height: 100%; }
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
-/* ── Hero ─────────────────────────────────────────────────── */
-.hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-container);
-  padding: 20px 24px;
-  background:
-    radial-gradient(circle at 12% 20%, var(--color-background-yellow) 0, transparent 55%),
-    radial-gradient(circle at 85% 30%, var(--color-background-pink) 0, transparent 55%),
-    radial-gradient(circle at 60% 110%, var(--color-background-blue) 0, transparent 60%),
-    var(--color-background-surface);
-}
-.hero-logo {
-  font-family: 'Pacifico', cursive;
-  font-size: 30px;
-  line-height: 1.2;
-  color: var(--color-text-accent);
-}
-.hero-sub { margin-top: 4px; font-weight: 600; color: var(--color-text-primary); }
-.hero-notes {
-  position: absolute;
-  right: 18px;
-  top: 10px;
-  font-size: 26px;
-  display: flex;
-  gap: 10px;
-  pointer-events: none;
-}
-.hero-notes span { display: inline-block; animation: bob 2.4s ease-in-out infinite; }
-.hero-notes span:nth-child(2) { animation-delay: 0.4s; }
-.hero-notes span:nth-child(3) { animation-delay: 0.8s; }
-@keyframes bob {
-  0%, 100% { transform: translateY(0) rotate(-6deg); }
-  50% { transform: translateY(-8px) rotate(6deg); }
-}
-
 .step-emoji { font-size: 1.1em; margin-right: 6px; }
 
 /* ── Man cho: dia than quay ───────────────────────────────── */
@@ -119,30 +83,8 @@ html, body, #root { height: 100%; }
   background: var(--color-background-card);
 }
 
-/* ── Xuong MV ─────────────────────────────────────────────── */
-.mv-frame {
-  display: block;
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #000;
-  margin: 0 auto;
-  width: 100%;
-}
-.mv-frame.is-portrait { aspect-ratio: 9 / 16; max-width: 340px; }
-.mv-frame.is-landscape { aspect-ratio: 16 / 9; }
-.mv-thumb {
-  width: 40px;
-  height: 56px;
-  border-radius: 6px;
-  object-fit: cover;
-  display: block;
-  flex: none;
-}
-.mv-thumb.is-empty { background: color-mix(in srgb, var(--color-text-primary) 10%, transparent); }
-
 @media (prefers-reduced-motion: reduce) {
-  .hero-notes span, .vinyl, .cover.is-playing { animation: none; }
+  .vinyl, .cover.is-playing { animation: none; }
 }
-/* Nut doi theme chi con y nghia o man MV (Astryx) */
-body:not([data-page="mv"]) .theme-switcher { display: none; }
+/* Khong con man nao dung theme Astryx nen an nut doi theme */
+.theme-switcher { display: none; }

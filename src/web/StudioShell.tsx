@@ -35,10 +35,13 @@ export function WaveMark({width, height, barClass}: {
   );
 }
 
-export function StudioShell({onHome, onBack, children}: {
+export function StudioShell({onHome, onBack, tab = 'song', onSong, children}: {
   onHome: () => void;
   /** Co thi hien nut mui ten quay lai o goc trai. */
   onBack?: () => void;
+  /** 'mv' thi them tab "Xưởng MV" va tab "Bài hát" bam duoc (goi onSong). */
+  tab?: 'song' | 'mv';
+  onSong?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -61,7 +64,14 @@ export function StudioShell({onHome, onBack, children}: {
             </a>
             <nav className="tabs" aria-label="Các khu vực">
               <button onClick={onHome}>Trang chủ</button>
-              <button className="on" aria-current="page">Bài hát</button>
+              {tab === 'mv' ? (
+                <>
+                  <button onClick={onSong}>Bài hát</button>
+                  <button className="on" aria-current="page">Xưởng MV</button>
+                </>
+              ) : (
+                <button className="on" aria-current="page">Bài hát</button>
+              )}
             </nav>
           </div>
         </header>

@@ -49,10 +49,8 @@ export function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
   useEffect(() => {
-    // 'mv' la man con dung Astryx (co nut doi theme); 'home' va 'studio' tu ve giao dien rieng
-    const isMv = !!orderId && order?.status === 'ready' && !!mv;
-    document.body.dataset.page = !orderId && !isStarted ? 'home' : isMv ? 'mv' : 'studio';
-  }, [orderId, isStarted, order?.status, mv]);
+    document.body.dataset.page = !orderId && !isStarted ? 'home' : 'studio';
+  }, [orderId, isStarted]);
 
   useEffect(() => {
     if (!orderId) return;
@@ -144,7 +142,7 @@ export function App() {
       />
     );
   }
-  if (order?.status === 'ready' && mv) return <MvStudio order={order} mvId={mv.id} takeIdx={mv.takeIdx} onBack={closeMv} />;
+  if (order?.status === 'ready' && mv) return <MvStudio order={order} mvId={mv.id} takeIdx={mv.takeIdx} onBack={closeMv} onHome={goHome} />;
   if (order?.status === 'ready') return <Result order={order} onNew={reset} onHome={goHome} onMakeMv={makeMv} isMvStarting={isMvStarting} passcode={passcode} onPasscode={setPasscode} />;
   return <Waiting order={order} story={`${answers.memories}. ${answers.qualities}`} onRetry={reset} onHome={goHome} />;
 }

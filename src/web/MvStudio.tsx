@@ -1,33 +1,39 @@
+// Xuong MV, dung theo ref/solsongs-v1.6.1.html: the "Nguyen lieu", "Phong chieu" (canvas + timeline) va storyboard.
+// Ban ref cho nhap loi, sua mo ta va tao lai tung canh; app chua co API do nen man nay chi theo doi, xem va xuat MV.
 import {useEffect, useRef, useState} from 'react';
-import {Banner} from '@astryxdesign/core/Banner';
-import {Button} from '@astryxdesign/core/Button';
-import {Card} from '@astryxdesign/core/Card';
-import {Grid} from '@astryxdesign/core/Grid';
-import {Layout, LayoutContent} from '@astryxdesign/core/Layout';
-import {List, ListItem} from '@astryxdesign/core/List';
-import {ProgressBar} from '@astryxdesign/core/ProgressBar';
-import {HStack, StackItem, VStack} from '@astryxdesign/core/Stack';
-import {Heading, Text} from '@astryxdesign/core/Text';
-import {useMediaQuery} from '@astryxdesign/core/hooks';
 import type {OrderView} from '../shared/catalog';
 import {MV_MODES, type MvRatio, type MvScene, type MvView} from '../shared/mv';
 import {getMv} from './mvApi';
 import {createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
+import {StudioShell} from './StudioShell';
 
 const POLL_MS = 3000;
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-const STATUS: Record<MvScene['status'], string> = {
-  pending: '⏳ Chờ',
-  image: '🖼️ Đang vẽ',
-  clip: '🎬 Đang quay',
-  done: '✅ Xong',
-  failed: '⚠️ Lỗi',
-};
+type PillState = 'wait' | 'run' | 'ok' | 'err';
+const PILL_CLASS: Record<PillState, string> = {wait: '', run: ' run', ok: ' ok', err: ' err'};
 
-export function MvStudio({order, mvId, takeIdx, onBack}: {order: OrderView; mvId: string; takeIdx: number; onBack: () => void}) {
-  const isNarrow = useMediaQuery('(max-width: 860px)');
+/** Trang thai anh va clip cua 1 canh, suy ra tu status chung cua canh. */
+function pills(s: MvScene): {image: PillState; clip: PillState | null} {
+  const clip = s.kind === 'clip';
+  if (s.status === 'failed') return {image: 'err', clip: clip ? 'err' : null};
+  if (s.status === 'pending') return {image: 'wait', clip: clip ? 'wait' : null};
+  if (s.status === 'image') return {image: 'run', clip: clip ? 'wait' : null};
+  if (s.status === 'clip') return {image: 'ok', clip: 'run'};
+  return {image: 'ok', clip: clip ? 'ok' : null};
+}
+
+const IMAGE_TEXT: Record<PillState, string> = {wait: 'chờ', run: 'đang tạo', ok: 'xong', err: 'lỗi'};
+const CLIP_TEXT: Record<PillState, string> = {wait: 'chờ', run: 'đang quay', ok: 'xong', err: 'lỗi'};
+
+export function MvStudio({order, mvId, takeIdx, onBack, onHome}: {
+  order: OrderView;
+  mvId: string;
+  takeIdx: number;
+  onBack: () => void;
+  onHome: () => void;
+}) {
   const [mv, setMv] = useState<MvView | null>(null);
 
   useEffect(() => {
@@ -48,89 +54,6 @@ export function MvStudio({order, mvId, takeIdx, onBack}: {order: OrderView; mvId
     };
   }, [mvId]);
 
-  const done = mv?.scenes.filter(s => s.status === 'done').length ?? 0;
-  const total = mv?.scenes.length ?? 0;
-  const clips = mv?.scenes.filter(s => s.kind === 'clip') ?? [];
-
-  return (
-    <Layout
-      height="fill"
-      contentWidth={1120}
-      padding={isNarrow ? 4 : 5}
-      content={
-        <LayoutContent>
-          <VStack gap={5}>
-            <div className="hero">
-              <div className="hero-notes" aria-hidden="true"><span>🎬</span><span>🎞️</span><span>✨</span></div>
-              <div className="hero-logo">SolSongs</div>
-              <div className="hero-sub">
-                Xưởng MV · {order.title ?? 'Bài hát'} · tặng {order.recipient}
-              </div>
-            </div>
-
-            {mv && (
-              <Card padding={4}>
-                <VStack gap={2}>
-                  <HStack gap={3} vAlign="center" hAlign="between">
-                    <Text type="label">
-                      {mv.status === 'ready' ? '🎉 MV đã xong' : `Đang dựng MV: ${done}/${total} cảnh`}
-                    </Text>
-                    <Text type="supporting" color="secondary">
-                      {MV_MODES[mv.mode].label} · {mv.ratio} · {clips.length} clip ({clips.reduce((s, c) => s + c.clipSec, 0)}s) ·{' '}
-                      {total - clips.length} ảnh · chi phí AI ~${mv.costUsd.toFixed(2)}
-                    </Text>
-                  </HStack>
-                  <ProgressBar label="Tiến độ dựng MV" isLabelHidden value={total ? (done / total) * 100 : 0} />
-                </VStack>
-              </Card>
-            )}
-
-            {mv?.status === 'failed' && (
-              <Banner status="error" title="Chưa dựng được MV" collapsible={false}>
-                <Text type="supporting">{mv.error ?? 'Lỗi không xác định.'}</Text>
-              </Banner>
-            )}
-
-            <Grid columns={isNarrow ? 1 : 2} gap={5}>
-              <Preview order={order} mv={mv} takeIdx={mv?.take ?? takeIdx} />
-              <Card padding={4}>
-                <VStack gap={3}>
-                  <Heading level={3}>🎞️ Kịch bản cảnh</Heading>
-                  <List hasDividers density="compact" edge="outset">
-                    {(mv?.scenes ?? []).map(s => (
-                      <ListItem
-                        key={s.idx}
-                        startContent={
-                          s.imageUrl ? (
-                            <img className="mv-thumb" src={s.imageUrl} alt="" />
-                          ) : (
-                            <span className="mv-thumb is-empty" aria-hidden="true" />
-                          )
-                        }
-                        label={s.lines.length ? s.lines.join(' / ') : s.section}
-                        description={`Cảnh ${s.idx + 1} · ${mmss(s.start)}–${mmss(s.end)} · ${
-                          s.kind === 'clip' ? `🎬 Clip ${s.clipSec}s` : '🖼️ Ảnh'
-                        } · ${s.section}`}
-                        endContent={<Text type="supporting">{STATUS[s.status]}</Text>}
-                      />
-                    ))}
-                  </List>
-                </VStack>
-              </Card>
-            </Grid>
-
-            <HStack hAlign="center">
-              <Button label="← Quay lại bài hát" variant="ghost" onClick={onBack} />
-            </HStack>
-          </VStack>
-        </LayoutContent>
-      }
-    />
-  );
-}
-
-/** Xem truoc va xuat MV ngay tren trinh duyet. Canvas ve bang mvRender nen ban xuat giong het ban xem. */
-function Preview({order, mv, takeIdx}: {order: OrderView; mv: MvView | null; takeIdx: number}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const media = useRef<Media>(createMedia());
@@ -142,11 +65,14 @@ function Preview({order, mv, takeIdx}: {order: OrderView; mv: MvView | null; tak
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'recording'>('idle');
   const [download, setDownload] = useState<{url: string; name: string} | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
-  const take = order.takes[takeIdx];
+
+  const take = order.takes[mv?.take ?? takeIdx] ?? order.takes[0];
   const ratio: MvRatio = mv?.ratio ?? '9:16';
   const scenes = mv?.scenes ?? [];
-  const ready = mv?.status === 'ready';
+  const isReady = mv?.status === 'ready';
+  const isFailed = mv?.status === 'failed';
   const [W, H] = ratio === '9:16' ? [720, 1280] : [1280, 720];
+  const title = order.title ?? 'Bài hát';
 
   // Ve lien tuc theo thoi gian nhac
   const live = useRef({scenes, isPlaying, recipient: order.recipient, title: order.title ?? ''});
@@ -190,6 +116,10 @@ function Preview({order, mv, takeIdx}: {order: OrderView; mv: MvView | null; tak
     await ensureGraph()?.ctx.resume();
     await el.play();
     setIsPlaying(true);
+  };
+
+  const seek = (t: number) => {
+    if (audioRef.current && exportState === 'idle') audioRef.current.currentTime = t;
   };
 
   const exportVideo = async () => {
@@ -248,68 +178,184 @@ function Preview({order, mv, takeIdx}: {order: OrderView; mv: MvView | null; tak
 
   const total = dur || take.durationSec || 0;
   const isBusy = exportState !== 'idle';
+  const done = scenes.filter(s => s.status === 'done').length;
+  const clips = scenes.filter(s => s.kind === 'clip');
+  const clipSec = clips.reduce((sum, c) => sum + c.clipSec, 0);
+  const current = scenes.find(s => now >= s.start && now < s.end)?.idx ?? -1;
+
+  const status = isFailed
+    ? 'Chưa dựng được MV.'
+    : exportState === 'recording'
+      ? `Đang ghi file MV: ${mmss(now)} / ${mmss(total)}. Giữ tab này mở đến khi xong.`
+      : exportState === 'loading'
+        ? 'Đang tải ảnh và clip của các cảnh…'
+        : download
+          ? 'File MV đã sẵn sàng.'
+          : isReady
+            ? `MV đã xong. Bấm ▶ để xem · ${mmss(now)} / ${mmss(total)}`
+            : mv
+              ? `Đang dựng: ${done}/${scenes.length} cảnh. Có thể xem thử các cảnh đã xong.`
+              : 'Đang tải MV…';
 
   return (
-    <Card padding={4}>
-      <VStack gap={3}>
-        <Heading level={3}>📱 Xem trước</Heading>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          className={ratio === '9:16' ? 'mv-frame is-portrait' : 'mv-frame is-landscape'}
-          aria-label="Khung xem trước MV"
-        />
-        <audio
-          ref={audioRef}
-          src={take.audioUrl}
-          preload="auto"
-          onLoadedMetadata={e => setDur(e.currentTarget.duration)}
-          onEnded={() => setIsPlaying(false)}
-        />
-        <HStack gap={3} vAlign="center">
-          <Button label={isPlaying ? '⏸ Dừng' : '▶ Xem MV'} variant="primary" isDisabled={isBusy} onClick={() => void toggle()} />
-          <StackItem size="fill">
-            <ProgressBar label="Thời gian" isLabelHidden value={now} max={total || 1} />
-          </StackItem>
-          <Text type="supporting" color="secondary">
-            {mmss(now)} / {mmss(total)}
-          </Text>
-        </HStack>
-        {exportState === 'recording' ? (
-          <Button label={`⏹ Huỷ xuất (${mmss(now)} / ${mmss(total)})`} variant="secondary" width="100%" onClick={cancelExport} />
-        ) : (
-          <Button
-            label={exportState === 'loading' ? 'Đang tải cảnh…' : '⬇ Xuất video'}
-            variant="secondary"
-            width="100%"
-            isDisabled={!ready || isBusy}
-            isLoading={exportState === 'loading'}
-            onClick={() => void exportVideo()}
-          />
-        )}
-        {download && !isBusy && (
-          <Button
-            label={`💾 Lưu ${download.name}`}
-            variant="primary"
-            width="100%"
-            onClick={() => {
-              const a = document.createElement('a');
-              a.href = download.url;
-              a.download = download.name;
-              a.click();
-            }}
-          />
-        )}
-        {exportError && (
-          <Banner status="error" title="Không xuất được video" collapsible={false}>
-            <Text type="supporting">{exportError}</Text>
-          </Banner>
-        )}
-        <Text type="supporting" color="secondary">
-          Video ghép ngay trên máy bạn, chạy theo thời gian thật của bài (khoảng {mmss(total)}). Giữ tab mở đến khi xong.
-        </Text>
-      </VStack>
-    </Card>
+    <StudioShell onHome={onHome} onBack={onBack} tab="mv" onSong={onBack}>
+      <section className="step on" data-step="mv">
+        <div className="mv-intro">
+          <div>
+            <p className="eyebrow">XƯỞNG MV</p>
+            <h1>Mỗi bài hát,<br /><em>một câu chuyện có hình.</em></h1>
+          </div>
+          <p>{title} · tặng {order.recipient}</p>
+        </div>
+
+        <div className="bench">
+          <section className="card" aria-labelledby="mvInTitle">
+            <div className="card-head">
+              <div>
+                <p className="lab">NGUYÊN LIỆU</p>
+                <h2 id="mvInTitle">Bài hát của bạn</h2>
+              </div>
+            </div>
+            <div className="songrow">
+              <div className="sr-txt">
+                <small>BÀI HÁT</small>
+                <b>{title}</b>
+                <span>Bản {(mv?.take ?? takeIdx) + 1}{total ? ` · ${mmss(total)}` : ''}</span>
+              </div>
+              <button type="button" className="btn primary sm" disabled={isBusy} onClick={() => void toggle()}>
+                {isPlaying ? '⏸ DỪNG' : '▶ XEM MV'}
+              </button>
+            </div>
+            {mv && (
+              <>
+                <dl className="facts">
+                  <dt>Kiểu MV</dt>
+                  <dd>{MV_MODES[mv.mode].label}</dd>
+                  <dt>Khung hình</dt>
+                  <dd>{mv.ratio === '9:16' ? 'Dọc 9:16' : 'Ngang 16:9'}</dd>
+                  <dt>Số cảnh</dt>
+                  <dd>{scenes.length} cảnh · {clips.length} clip ({clipSec}s) · {scenes.length - clips.length} ảnh</dd>
+                  <dt>Chi phí AI</dt>
+                  <dd>~${mv.costUsd.toFixed(2)}</dd>
+                </dl>
+                <div
+                  className="mv-prog"
+                  role="progressbar"
+                  aria-label="Tiến độ dựng MV"
+                  aria-valuemin={0}
+                  aria-valuemax={scenes.length}
+                  aria-valuenow={done}>
+                  <i style={{width: `${scenes.length ? (done / scenes.length) * 100 : 0}%`}} />
+                </div>
+                <div className="est">
+                  {isReady ? <b>MV đã xong</b> : isFailed ? <span className="w">Dựng MV bị dừng</span> : <>Đang dựng <b>{done}/{scenes.length}</b> cảnh</>}
+                </div>
+              </>
+            )}
+            {isFailed && <p className="err" role="alert">{mv?.error ?? 'Lỗi không xác định.'}</p>}
+            <div className="actions">
+              {exportState === 'recording' ? (
+                <button className="btn outline wide" onClick={cancelExport}>⏹ Huỷ xuất ({mmss(now)} / {mmss(total)})</button>
+              ) : (
+                <button className="btn primary wide" disabled={!isReady || isBusy} onClick={() => void exportVideo()}>
+                  {exportState === 'loading' ? 'Đang tải cảnh…' : 'Tạo file MV ↓'}
+                </button>
+              )}
+            </div>
+            {exportError && <p className="err" role="alert">{exportError}</p>}
+            <p className="note">
+              Phụ đề và nhạc được ghép ngay trong trình duyệt, chạy theo thời gian thật của bài{total ? ` (khoảng ${mmss(total)})` : ''}. Giữ tab mở đến khi xong.
+            </p>
+          </section>
+
+          <section className="monitor" aria-labelledby="mvOutTitle">
+            <div className="card-head">
+              <div>
+                <p className="lab">PHÒNG CHIẾU</p>
+                <h2 id="mvOutTitle">{title}</h2>
+              </div>
+              <span className="ratio">{ratio}</span>
+            </div>
+            <div className={`stage${ratio === '16:9' ? ' wide' : ''}`}>
+              <canvas ref={canvasRef} width={W} height={H} aria-label="Khung xem trước MV" />
+              <button className="transport" aria-label={isPlaying ? 'Dừng MV' : 'Phát MV'} disabled={isBusy} onClick={() => void toggle()}>
+                {isPlaying ? '⏸' : '▶'}
+              </button>
+            </div>
+            <audio
+              ref={audioRef}
+              src={take.audioUrl}
+              preload="auto"
+              onLoadedMetadata={e => setDur(e.currentTarget.duration)}
+              onEnded={() => setIsPlaying(false)}
+            />
+            <div className="timeline" aria-label="Các cảnh của MV">
+              {scenes.map(s => (
+                <button
+                  key={s.idx}
+                  title={`Cảnh ${s.idx + 1} · ${mmss(s.start)}`}
+                  aria-label={`Tới cảnh ${s.idx + 1}`}
+                  aria-current={s.idx === current ? 'true' : undefined}
+                  disabled={isBusy}
+                  style={s.imageUrl ? {backgroundImage: `url(${s.imageUrl})`} : undefined}
+                  onClick={() => seek(s.start)}>
+                  <span>{s.idx + 1}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mstatus" aria-live="polite">{status}</div>
+            {download && !isBusy && (
+              <div className="mout">
+                <video src={download.url} controls playsInline />
+                <a className="btn outline sm" href={download.url} download={download.name}>Tải MV ↓</a>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="board-head">
+          <div>
+            <p className="lab">KỊCH BẢN HÌNH</p>
+            <h2>Storyboard</h2>
+          </div>
+          <span className="note">Mỗi câu hát một cảnh. Ảnh và clip gốc tải riêng ở từng cảnh.</span>
+        </div>
+        <div className="board">
+          {scenes.map(s => {
+            const p = pills(s);
+            return (
+              <article className="scene" key={s.idx}>
+                <div className="thumb">
+                  <span className="num">Cảnh {s.idx + 1} · {mmss(s.start)}–{mmss(s.end)}</span>
+                  {s.clipUrl && s.status === 'done' ? (
+                    <video src={s.clipUrl} poster={s.imageUrl ?? undefined} muted loop playsInline preload="metadata" />
+                  ) : (
+                    s.imageUrl && <img src={s.imageUrl} alt="" />
+                  )}
+                </div>
+                <div className="body">
+                  <div className="ly">
+                    {s.lines.length ? s.lines.map((l, i) => <span key={i}>{i > 0 && <br />}{l}</span>) : <i>{s.section}</i>}
+                  </div>
+                  <div className="meta">
+                    <span className={`s-pill${PILL_CLASS[p.image]}`}>Ảnh: {IMAGE_TEXT[p.image]}</span>
+                    {p.clip && (
+                      <span className={`s-pill${PILL_CLASS[p.clip]}`}>
+                        Clip: {p.clip === 'ok' ? `${s.clipSec}s` : CLIP_TEXT[p.clip]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="row">
+                    {s.imageUrl && <a className="btn outline sm" href={s.imageUrl} download={`canh-${s.idx + 1}.jpg`}>⬇ Ảnh</a>}
+                    {s.clipUrl && s.status === 'done' && <a className="btn outline sm" href={s.clipUrl} download={`canh-${s.idx + 1}.mp4`}>⬇ Clip gốc</a>}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        <p className="r-again"><button className="btn ghost" onClick={onBack}>← Quay lại bài hát</button></p>
+      </section>
+    </StudioShell>
   );
 }
