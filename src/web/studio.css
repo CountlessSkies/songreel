@@ -293,7 +293,9 @@ a.btn{text-decoration:none}
 .mv-prog{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
 .mv-prog i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--gold2),var(--pink));transition:width .4s}
 .card .actions .btn.wide{margin-top:0}
-.stage.wide{height:auto;aspect-ratio:16/9}
+/* Khung xem truoc giu dung ti le MV: max-height:100% cua ban ref khong an trong grid nen canvas 9:16 bi cat thanh o vuong */
+.stage{grid-template-rows:100%;grid-template-columns:100%}.stage canvas{height:100%;width:auto;max-width:100%;justify-self:center}
+.stage.wide{height:auto;aspect-ratio:16/9}.stage.wide canvas{width:100%;height:auto}
 .transport:disabled,.timeline button:disabled{cursor:default;opacity:.6}
 .card .upl{margin-bottom:12px}.card .consent{margin:-4px 0 12px}.card .btn.grow{flex:1}
 .card .f select{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
