@@ -3,7 +3,7 @@
 Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI viết lời tiếng Việt → Suno hát 2 bản → nghe thử 40s → thanh toán (giả lập) mở bản đầy đủ → tuỳ chọn dựng MV.
 
 - **Trang chủ:** `src/web/Home.tsx` + `home.css`, lấy theo `ref/solsongs-v1.6.1.html` (logo sóng âm, lưới dịp tặng 3D ở `homeOccArt.ts`, giai điệu mẫu ở `homeBed.ts`). `?start=1` vào thẳng bảng hỏi.
-- **Deploy gần nhất:** 2026-11-23, version `000cd767` (dải duyệt storyboard nổi bật, nút "Dựng MV mới" để đổi mức; trước đó `d6ce6339`: mọi mức chạy pipeline kể chuyện). Đã chạy migration `0002`–`0004` trên D1 remote; secret `RUNNINGHUB_API_KEY`, `POC_PASSCODE`, `OPENAI_API_KEY` lấy từ `.dev.vars`.
+- **Deploy gần nhất:** 2026-11-23, version `1728ac8d` (tải trọn clip trước khi ghép, prompt director v2 chưa thử thật, dừng MV rõ ràng khi ví RunningHub hết tiền). Đã chạy migration `0002`–`0004` trên D1 remote; secret `RUNNINGHUB_API_KEY`, `POC_PASSCODE`, `OPENAI_API_KEY` lấy từ `.dev.vars`.
 
 - **URL:** https://songreel-poc.quann111.workers.dev
 - **Benchmark viết lời:** https://songreel-poc.quann111.workers.dev/bench/
@@ -117,7 +117,17 @@ CLOUDFLARE_ACCOUNT_ID=6a959e87aaf889d75de1f587de9f89cb npm run deploy
 - `e2e_mv.py <base> <order-id> [amateur|pro|cinematic] [9:16|16:9]`: dựng 1 MV thật cho 1 đơn đã xong tới bước duyệt storyboard (~$2, tốn tiền thật).
 - `align_check.ts`: kiểm tra căn lời và chia shot trên 1 kết quả Whisper.
 
-## Việc tiếp theo: tách giọng trước Whisper (làm ngày 2026-11-24)
+## Việc tiếp theo (cập nhật 2026-11-23 chiều)
+
+- **Ví RunningHub hết tiền** (lỗi `Insufficient balance`): nạp xong mới dựng được MV hay tạo bài mới. MV giờ dừng với dòng "Ví RunningHub hết tiền…".
+- **Prompt director v2 chưa thử thật** vì ví hết tiền. Nạp tiền xong thì chạy `python tools/e2e_mv.py http://127.0.0.1:8787 9a7f9b2a1f8a amateur 9:16` (khoảng $2) và xem storyboard:
+  - có cảnh hồi tưởng cho lời "ngày xưa/hồi bé" không;
+  - có 3–5 bối cảnh không;
+  - cỡ cảnh có đa dạng không.
+- **"Phân cảnh có vấn đề"** (góp ý của anh Hà, 09:56): chưa rõ ý. Hiện mỗi câu hát là một cảnh khoảng 5–6 giây; nếu ý là cắt quá đều thì có thể ghép 2 câu thành một cảnh ở verse. Hỏi lại anh Hà trước khi sửa.
+- MV Pro `2cce065f6a91` của anh Hà: cảnh cuối bị RunningHub từ chối lúc gửi quay clip (chưa rõ lý do; từ bản này lỗi được lưu vào `clipError` của cảnh).
+
+## Tách giọng trước Whisper (làm ngày 2026-11-24)
 
 **Vấn đề.** Bước `timing` cho Whisper nghe bản phối đầy đủ (kèm lời làm gợi ý) thì lúc được lúc không:
 - Bài "Mẹ Ơi, Mừng Sinh Nhật" (đơn local `9a7f9b2a1f8a`): đo được 17/19 câu.
