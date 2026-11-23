@@ -34,6 +34,7 @@ Bài hát tặng riêng: trang chủ → khách điền bảng hỏi → AI vi�
    - Nếu model trả JSON hỏng, server tự cắt bớt rồi parse lại.
 3. **Critic:** luật của prototype v1.03 (`src/worker/critic.ts`). Nếu vi phạm luật cứng thì sửa, tối đa 3 lần gọi tổng cộng.
 4. **Music Director:** ghép style tags (thể loại, cảm xúc, thời đại, giọng, nhạc cụ, BPM) và gắn tag `[Verse]/[Chorus]` cho lời.
+   - **Bài giới hạn dưới 1:30** (2026-11-23, để MV Seedance không tốn): khung lời chỉ còn Intro, Verse 4 câu, Chorus 4 câu, Outro 2 câu. Critic báo lỗi nếu quá 12 câu. Cuối lời gắn `[End]` để Suno không hát thêm. Suno không có tham số thời lượng nên đây là giới hạn mềm, **chưa thử thật** (ví RunningHub hết tiền). Bài cũ dài khoảng 2:20 đến 3:00.
 5. **Producer:** Suno v6 custom (`/rhart-audio/suno-v6/custom`, $0.08 cho 2 bản). Link kết quả chỉ sống 24h nên tải ngay về KV.
 6. **Đẩy đơn:**
    - `GET /api/orders/:id` chạy bước tiếp theo ngay trong request. Viết lời bằng Sol có thể mất khoảng 40s.
@@ -118,6 +119,7 @@ CLOUDFLARE_ACCOUNT_ID=6a959e87aaf889d75de1f587de9f89cb npm run deploy
 - `align_check.ts`: kiểm tra căn lời và chia shot trên 1 kết quả Whisper.
 
 ## Việc tiếp theo (cập nhật 2026-11-23 chiều)
+- Sau khi nạp ví: tạo 2 đến 3 bài thật, đo độ dài xem có dưới 1:30 không. Nếu Suno vẫn ra dài thì cân nhắc đo độ dài mp3 ở server và cho Suno làm lại.
 
 - **Ví RunningHub hết tiền** (lỗi `Insufficient balance`): nạp xong mới dựng được MV hay tạo bài mới. MV giờ dừng với dòng "Ví RunningHub hết tiền…".
 - **Prompt director v2 chưa thử thật** vì ví hết tiền. Nạp tiền xong thì chạy `python tools/e2e_mv.py http://127.0.0.1:8787 9a7f9b2a1f8a amateur 9:16` (khoảng $2) và xem storyboard:

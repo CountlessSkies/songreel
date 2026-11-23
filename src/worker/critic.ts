@@ -29,6 +29,8 @@ export function critique(sections: LyricSection[], name: string): Critique {
   const notes: string[] = [];
   const sung = sections.flatMap(s => s.lines);
   if (sung.length < 10) issues.push(`chỉ có ${sung.length} câu (cần ≥10)`);
+  // Songs stay under 1:30 so the MV stays cheap: at most 12 sung lines
+  if (sung.length > 12) issues.push(`có ${sung.length} câu, bài phải ngắn (tối đa 12 câu)`);
   const long = sung.filter(l => l.split(/\s+/).length > 12);
   if (long.length) issues.push(`${long.length} câu dài hơn 12 chữ`);
   const last = name.trim().split(/\s+/).pop()!.toLowerCase();

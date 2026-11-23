@@ -158,6 +158,7 @@ function tagLyrics(sections: LyricSection[]) {
       const tag = s.kind === 'verse' ? `Verse ${++verse}` : TAG[s.kind];
       return `[${tag}]\n${s.lines.join('\n')}`;
     })
+    .concat('[End]') // Suno stops after the Outro instead of adding another chorus (keeps the song under 1:30)
     .join('\n\n');
 }
 
