@@ -49,6 +49,8 @@ export function MvStudio(props: {
   onPasscode: (v: string) => void;
   onBack: () => void;
   onHome: () => void;
+  /** Ve man chon muc de dung MV khac (doi muc, doi khung hinh, doi anh). */
+  onNewMv: () => void;
 }) {
   const {order, mvId, takeIdx, onBack, onHome} = props;
   const [mv, setMv] = useState<MvView | null>(null);
@@ -59,6 +61,8 @@ export function MvStudio(props: {
   const [pollKey, setPollKey] = useState(0);
   const [isApproving, setIsApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
+  // Trinh duyet da nho ma truy cap (tu bang hoi) thi khong hoi lai o buoc duyet
+  const [hadPasscode] = useState(() => !!props.passcode.trim());
 
   useEffect(() => {
     if (!mvId) {
@@ -249,7 +253,7 @@ export function MvStudio(props: {
             : isSetup
               ? 'Chọn mức video rồi bấm “Dựng MV”. Bấm ▶ để nghe bài kèm phụ đề.'
               : isReview
-                ? 'Storyboard đã xong. Bấm ▶ để xem các khung hình chạy trên nhạc.'
+                ? 'Storyboard đã xong. Bấm “Duyệt và quay video” ở trên để quay; bấm ▶ để xem trước trên nhạc.'
               : mv && !scenes.length
                 ? 'Đang nghe bài để lấy mốc lời và viết kịch bản…'
               : mv
@@ -281,6 +285,31 @@ export function MvStudio(props: {
           </div>
           <p>{title} · tặng {order.recipient}</p>
         </div>
+
+        {isReview && mv && (
+          <section className="review-top" aria-labelledby="reviewTitle">
+            <div>
+              <p className="lab">BƯỚC CUỐI · CHỜ BẠN DUYỆT</p>
+              <h2 id="reviewTitle">Storyboard đã xong, chưa quay video</h2>
+              <p>
+                Xem các cảnh bên dưới và bấm ▶ ở phòng chiếu để xem storyboard chạy trên nhạc. Ưng rồi thì bấm duyệt để AI quay video cho cả{' '}
+                {scenes.length} cảnh: chi phí AI thêm khoảng <b>${(mv.clipCostUsd ?? 0).toFixed(2)}</b>, mất khoảng 10 đến 20 phút. Chưa ưng thì bấm “Dựng MV mới” để làm lại.
+              </p>
+            </div>
+            <div className="review-act">
+              {!MOCK && !hadPasscode && (
+                <div className="f">
+                  <label htmlFor="mvPass2">Mã truy cập bản chạy thử</label>
+                  <input id="mvPass2" type="password" value={props.passcode} onChange={e => props.onPasscode(e.target.value)} autoComplete="off" />
+                </div>
+              )}
+              <button className="btn primary big" disabled={isApproving || (!MOCK && !props.passcode.trim())} onClick={() => void approve()}>
+                {isApproving ? 'Đang gửi…' : '🎬 Duyệt và quay video'}
+              </button>
+              {approveError && <p className="err" role="alert">{approveError}</p>}
+            </div>
+          </section>
+        )}
 
         <div className="bench">
           <section className="card" aria-labelledby="mvInTitle">
@@ -387,28 +416,13 @@ export function MvStudio(props: {
                     <>Đang dựng <b>{done}/{scenes.length}</b> cảnh</>
                   )}
                 </div>
-                {isReview && (
-                  <div className="review">
-                    <p>
-                      Xem từng cảnh bên dưới và bấm ▶ ở phòng chiếu để xem storyboard chạy trên nhạc. Ưng rồi thì quay video cho cả{' '}
-                      {scenes.length} cảnh, chi phí AI thêm khoảng <b>${(mv.clipCostUsd ?? 0).toFixed(2)}</b>, mất khoảng 10 đến 20 phút.
-                    </p>
-                    {!MOCK && (
-                      <div className="f">
-                        <label htmlFor="mvPass2">Mã truy cập bản chạy thử</label>
-                        <input id="mvPass2" type="password" value={props.passcode} onChange={e => props.onPasscode(e.target.value)} autoComplete="off" />
-                      </div>
-                    )}
-                    <button className="btn primary wide" disabled={isApproving || (!MOCK && !props.passcode.trim())} onClick={() => void approve()}>
-                      {isApproving ? 'Đang gửi…' : '🎬 Duyệt và quay video'}
-                    </button>
-                    {approveError && <p className="err" role="alert">{approveError}</p>}
-                  </div>
-                )}
               </>
             )}
             {isFailed && <p className="err" role="alert">{mv?.error ?? 'Lỗi không xác định.'}</p>}
             <div className="actions">
+              {!isSetup && !isBusy && (
+                <button className="btn outline grow" onClick={props.onNewMv}>＋ Dựng MV mới (chọn mức khác)</button>
+              )}
               {isSetup && (
                 <button className="btn primary grow" disabled={!canCreate} onClick={create}>
                   {props.isCreating ? 'Đang gửi…' : '▶ Dựng MV'}

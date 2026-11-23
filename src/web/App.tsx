@@ -203,6 +203,7 @@ export function App() {
         onPasscode={setPasscode}
         onBack={closeStudio}
         onHome={goHome}
+        onNewMv={() => openStudio(studio.takeIdx)}
       />
     );
   }
