@@ -7,7 +7,7 @@ import type {OrderView} from '../shared/catalog';
 import {estimateCostUsd, MV_TIERS, planScenes, type MvRatio, type MvScene, type MvTier, type MvView} from '../shared/mv';
 import {MOCK} from './api';
 import {approveMv, getMv, type MvRequest} from './mvApi';
-import {createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
+import {clipProgress, createMedia, drawFrame, mediaReady, pickMime, syncMedia, type Media} from './mvRender';
 import {StudioShell} from './StudioShell';
 
 const POLL_MS = 3000;
@@ -106,6 +106,12 @@ export function MvStudio(props: {
   const graph = useRef<{ctx: AudioContext; dest: MediaStreamAudioDestinationNode} | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const [now, setNow] = useState(0);
+  // Cap nhat tien do tai clip moi giay (khi dang dung, vong ve khong lam giao dien ve lai)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(k => k + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
   const [dur, setDur] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [exportState, setExportState] = useState<'idle' | 'loading' | 'recording'>('idle');
@@ -190,7 +196,12 @@ export function MvStudio(props: {
     }
     // Cho tai het anh va clip
     setExportState('loading');
-    for (let k = 0; k < 120 && !mediaReady(media.current, scenes); k++) await new Promise(r => setTimeout(r, 250));
+    for (let k = 0; k < 960 && !mediaReady(media.current, scenes); k++) await new Promise(r => setTimeout(r, 250));
+    if (!mediaReady(media.current, scenes)) {
+      setExportState('idle');
+      setExportError('Chưa tải xong clip của các cảnh. Kiểm tra mạng rồi bấm “Tạo file MV” lại.');
+      return;
+    }
     const g = ensureGraph()!;
     await g.ctx.resume();
     el.pause();
@@ -235,6 +246,8 @@ export function MvStudio(props: {
   const total = dur || take.durationSec || 0;
   const isBusy = exportState !== 'idle';
   const done = scenes.filter(s => s.status === 'done').length;
+  const clipsLoaded = clipProgress(media.current, scenes);
+  const isLoadingClips = clipsLoaded.total > 0 && clipsLoaded.ready < clipsLoaded.total;
   const framed = scenes.filter(s => s.status === 'framed' || s.status === 'clip' || s.status === 'done').length;
   const clips = scenes.filter(s => s.kind === 'clip');
   const clipSec = clips.reduce((sum, c) => sum + c.clipSec, 0);
@@ -248,8 +261,10 @@ export function MvStudio(props: {
         ? 'Đang tải ảnh và clip của các cảnh…'
         : download
           ? 'File MV đã sẵn sàng.'
+          : isReady && isLoadingClips
+            ? `Đang tải clip về máy: ${clipsLoaded.ready}/${clipsLoaded.total}. Cảnh nào chưa tải xong sẽ tạm hiện ảnh.`
           : isReady
-            ? `MV đã xong. Bấm ▶ để xem · ${mmss(now)} / ${mmss(total)}`
+            ? `MV đã xong${clipsLoaded.failed ? ` (${clipsLoaded.failed} clip tải lỗi, cảnh đó hiện ảnh)` : ''}. Bấm ▶ để xem · ${mmss(now)} / ${mmss(total)}`
             : isSetup
               ? 'Chọn mức video rồi bấm “Dựng MV”. Bấm ▶ để nghe bài kèm phụ đề.'
               : isReview
@@ -432,7 +447,7 @@ export function MvStudio(props: {
                 <button className="btn outline wide" onClick={cancelExport}>⏹ Huỷ xuất ({mmss(now)} / {mmss(total)})</button>
               ) : (
                 <button className={isSetup ? 'btn outline' : 'btn primary wide'} disabled={!isReady || isBusy} onClick={() => void exportVideo()}>
-                  {exportState === 'loading' ? 'Đang tải cảnh…' : 'Tạo file MV ↓'}
+                  {exportState === 'loading' ? `Đang tải clip ${clipsLoaded.ready}/${clipsLoaded.total}…` : 'Tạo file MV ↓'}
                 </button>
               )}
             </div>

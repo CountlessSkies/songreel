@@ -13,15 +13,16 @@ import {transcribeWords} from './openai';
 import {getRow as getOrder, type Brief, type Env} from './pipeline';
 import {MV_STORY_SYSTEM, mvStoryUser} from './prompts';
 import {
-  chatText, costOf, isFailure, isSuccess, keepRaw, outputsOf, queryTask, RhError, submitSeedream, submitVideo, uploadMedia,
+  BALANCE_MESSAGE, chatText, costOf, isBalanceError, isFailure, isSuccess, keepRaw, outputsOf, queryTask, rethrowBalance, RhError,
+  submitSeedream, submitVideo, uploadMedia,
   type RhResult,
 } from './runninghub';
 
 const DIRECTOR_MODEL = 'openai/gpt-6.1-sol';
 const MAX_INFLIGHT = 8;
 const MAX_TRIES = 2;
-const MAX_CHARACTERS = 2;
-const MAX_LOCATIONS = 3;
+const MAX_CHARACTERS = 4;
+const MAX_LOCATIONS = 5;
 /** Link RunningHub song 24h: qua 20h thi upload lai tu KV truoc khi dung lam khung clip. */
 const RH_URL_FRESH_MS = 20 * 3600_000;
 const SILENT = 'Silent, natural performance with a relaxed mouth. No singing or spoken dialogue.';
@@ -68,6 +69,8 @@ export type StoryScene = MvScene & {
   tries: number;
   endTries: number;
   clipTries: number;
+  /** Ly do canh bi thanh anh tinh (loi tu RunningHub khi quay clip). */
+  clipError?: string;
 };
 
 /** Phan cua 1 dong mvs ma pipeline nay can. */
@@ -113,6 +116,7 @@ export async function advanceStory(env: Env, row: StoryRow, ctx: StoryCtx) {
     try {
       return await stepScript(env, row, ctx);
     } catch (e) {
+      if (isBalanceError(e)) throw new Error(BALANCE_MESSAGE);
       const story: Story = JSON.parse(row.story!);
       story.scriptTries = (story.scriptTries ?? 0) + 1;
       story.scriptError = e instanceof Error ? e.message : String(e);
@@ -309,6 +313,7 @@ async function stepSheets(env: Env, row: StoryRow, ctx: StoryCtx) {
       try {
         s.task = await submitSeedream(key, {prompt: s.prompt, refs: s.refs, width: s.w, height: s.h});
       } catch (e) {
+        rethrowBalance(e);
         s.tries++;
         if (e instanceof RhError && !e.transient) s.tries = MAX_TRIES;
       }
@@ -425,6 +430,7 @@ async function stepFrames(env: Env, row: StoryRow, ctx: StoryCtx) {
       }
       inflight++;
     } catch (e) {
+      rethrowBalance(e);
       const hard = e instanceof RhError && !e.transient;
       if (which === 'start') s.tries = hard ? MAX_TRIES : s.tries + 1;
       else s.endTries = hard ? MAX_TRIES : s.endTries + 1;
@@ -467,7 +473,8 @@ async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
   const video = videoOf(row.story ? JSON.parse(row.story) : null);
   const key = env.RUNNINGHUB_API_KEY;
   let cost = row.cost_usd;
-  const giveUp = (s: StoryScene) => Object.assign(s, {kind: 'still', clipSec: 0, status: 'done', clipTask: null});
+  const giveUp = (s: StoryScene, why?: string) =>
+    Object.assign(s, {kind: 'still', clipSec: 0, status: 'done', clipTask: null, ...(why ? {clipError: why.slice(0, 300)} : {})});
 
   await Promise.all(
     scenes.map(async s => {
@@ -477,7 +484,7 @@ async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
       await keepRaw(env.BLOBS, res);
       if (isFailure(res.status)) {
         s.clipTask = null;
-        if (++s.clipTries >= MAX_TRIES) giveUp(s);
+        if (++s.clipTries >= MAX_TRIES) giveUp(s, res.errorMessage || res.errorCode || res.status);
         else s.status = 'framed';
         return;
       }
@@ -505,7 +512,8 @@ async function stepClips(env: Env, row: StoryRow, ctx: StoryCtx) {
       s.status = 'clip';
       inflight++;
     } catch (e) {
-      if ((e instanceof RhError && !e.transient) || ++s.clipTries >= MAX_TRIES) giveUp(s);
+      rethrowBalance(e);
+      if ((e instanceof RhError && !e.transient) || ++s.clipTries >= MAX_TRIES) giveUp(s, e instanceof Error ? e.message : String(e));
     }
   }
   // Canh ve hong ca khung dau: bo qua (ghep video se de man den ngan) -> danh dau xong

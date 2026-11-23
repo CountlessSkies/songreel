@@ -26,6 +26,16 @@ export class RhError extends Error {
   }
 }
 
+/** Vi RunningHub het tien: phai dung ca MV (bao ro rang), khong lui ve anh tinh. */
+export const isBalanceError = (e: unknown) => e instanceof Error && /insufficient balance|recharge|余额不足/i.test(e.message);
+
+export const BALANCE_MESSAGE = 'Ví RunningHub hết tiền, cần nạp thêm rồi dựng lại MV.';
+
+/** Nem lai loi het tien de dung pipeline; loi khac thi bo qua cho ham goi xu ly. */
+export function rethrowBalance(e: unknown) {
+  if (isBalanceError(e)) throw new Error(BALANCE_MESSAGE);
+}
+
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 /** Gui request, thu lai toi da 3 lan voi loi tam thoi (mang, 429, 5xx), gian cach 1s, 2s. */

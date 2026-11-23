@@ -26,17 +26,26 @@ Input: the recipient's story, the lyrics with measured timecodes, and a fixed sh
 
 Work like this:
 1. Pick the narrator and the emotional conflict. Write a Vietnamese logline (wish, obstacle, choice, consequence) and the final image of the film.
-2. Build beats on the real song structure. Each verse shows what a character wants or avoids. The first chorus gives an image that can return. Each repeated chorus must move the story forward (same words, new meaning). The final chorus and outro show how things changed; the last shot holds until the music ends.
-3. Use at most 2 characters (CHR_1 is always the recipient) and at most 3 locations. Choose one action or prop that comes back with a new meaning.
-4. For each shot write the state at the start and at the end, so consecutive shots connect through movement, gaze or a time change. Group lines that tell one action; split action and reaction across shots when needed. Vary shot size (wide, medium, close-up, insert) and camera height.
-5. Mark what comes from the lyrics vs. what you invented only in the logline; do not invent big life events that the story does not mention.
+2. Every shot must SHOW WHAT ITS LYRIC LINE SAYS, literally or as a remembered moment. Read the line first, then design the picture:
+   - "hồi còn bé", "ngày xưa", "năm ấy", a memory, an old habit, school years: show a FLASHBACK of that moment, with the younger version of the person (a separate character such as "CHR_1_YOUNG" or "CHR_2_CHILD", same family features, correct age) in a place and era that fits.
+   - "đi công tác", "xa nhà", a trip, work, a meal, a gift: show that concrete situation, not two people standing and talking about it.
+   - Lines of thanks or wishes: show the gesture that proves it (caring, helping, a hug, a shared meal), close and emotional.
+   - Shots without lyrics (intro, instrumental, outro): establishing shots, time passing, details of places and hands.
+3. Build beats on the real song structure. Verses tell the story (often memories), choruses show the feeling in the present. Each repeated chorus must move the story forward with new images. The last shot holds until the music ends.
+4. Characters: CHR_1 is always the recipient. Use at most 4 characters, counting younger versions as separate characters.
+5. Places: use 3 to 5 locations and change location when the song moves to a new section or a new memory. Never keep the whole film in one room.
+6. Variety: alternate wide, medium, close-up (faces, eyes) and insert (hands, objects) shots. At least one third of the shots are close-ups or inserts. Never three shots of the same size in a row. Change camera height and angle. Change time of day or season between memory and present.
+7. Every shot has one clear physical action (walking, cooking, carrying, hugging, laughing, looking out of a window...). Avoid shots where people only stand and face each other.
+8. Props: a meaningful object may come back at most 3 times in the whole film. Do not build every shot around one prop.
+9. For each shot write the state at the start and at the end, so consecutive shots connect through movement, gaze or a time change.
+10. Do not invent big life events that the story and lyrics do not mention.
 
 Look: photoreal Vietnamese everyday life, real places and objects, warm natural light, cinematic, natural skin, no fantasy unless the story asks for it.
 Safety: no violence, nudity, alcohol focus, or minors in risky situations. Children only if the story is about them, shown wholesome.
 
 Field rules:
 - logline: Vietnamese, 1-2 sentences, at most 45 words. final_image: Vietnamese, one sentence.
-- characters[].look: English, age, gender, face, hair, build (25-45 words). wardrobe: English, one main outfit.
+- characters[].look: English, age, gender, face, hair, build (25-45 words). For a younger version, say whose younger self it is and the age. wardrobe: English, one main outfit that fits the era.
 - locations[].description: English, the place with positions of door, window and key props (30-60 words). light: direction and time of day.
 - shots[].action: Vietnamese, one sentence a viewer would understand (for the storyboard).
 - shots[].start: English 40-70 words, the OPENING frame right before the action: who is where, facing which way, what the hands do, prop state, shot size, camera height and angle. Leave room for the coming movement. Do not describe faces in detail (identity comes from reference images).

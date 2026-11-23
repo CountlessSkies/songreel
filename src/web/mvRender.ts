@@ -5,10 +5,54 @@ import type {MvScene} from '../shared/mv';
 export const FADE_SEC = 0.6;
 export const TITLE_SEC = 3.5;
 
-export type Media = {imgs: Map<string, HTMLImageElement>; vids: Map<string, HTMLVideoElement>};
+/**
+ * Anh va clip cua cac canh. Clip duoc tai tron ve may (blob) roi moi gan vao the <video>:
+ * trinh duyet khong tu tai truoc cac the video an, nen neu de no tu tai thi canh nao clip chua kip ve se hien anh tinh.
+ */
+export type Media = {
+  imgs: Map<string, HTMLImageElement>;
+  vids: Map<string, HTMLVideoElement>;
+  /** Trang thai tai tung clip (theo URL goc). */
+  clipState: Map<string, 'queued' | 'loading' | 'ready' | 'error'>;
+  queue: string[];
+  active: number;
+};
+
+const CLIP_FETCH_CONCURRENCY = 3;
+const CLIP_FETCH_TRIES = 3;
 
 export function createMedia(): Media {
-  return {imgs: new Map(), vids: new Map()};
+  return {imgs: new Map(), vids: new Map(), clipState: new Map(), queue: [], active: 0};
+}
+
+async function fetchClip(m: Media, url: string) {
+  const v = m.vids.get(url)!;
+  for (let k = 0; k < CLIP_FETCH_TRIES; k++) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(String(r.status));
+      v.src = URL.createObjectURL(await r.blob());
+      v.load();
+      m.clipState.set(url, 'ready');
+      return;
+    } catch {
+      await new Promise(res => setTimeout(res, 1000 * (k + 1)));
+    }
+  }
+  m.clipState.set(url, 'error');
+}
+
+/** Tai lan luot theo thu tu canh, toi da 3 clip cung luc. */
+function pump(m: Media) {
+  while (m.active < CLIP_FETCH_CONCURRENCY && m.queue.length) {
+    const url = m.queue.shift()!;
+    m.active++;
+    m.clipState.set(url, 'loading');
+    void fetchClip(m, url).finally(() => {
+      m.active--;
+      pump(m);
+    });
+  }
 }
 
 /** Tai truoc anh va clip cua cac canh da xong. */
@@ -26,19 +70,31 @@ export function syncMedia(m: Media, scenes: MvScene[]) {
       v.muted = true;
       v.playsInline = true;
       v.preload = 'auto';
-      v.src = s.clipUrl;
       m.vids.set(s.clipUrl, v);
+      m.clipState.set(s.clipUrl, 'queued');
+      m.queue.push(s.clipUrl);
     }
   }
+  pump(m);
 }
 
-/** So canh da tai xong anh/clip (de cho truoc khi xuat). */
+/** So clip da tai xong / tong so clip (loi tai cung tinh la xong de khong cho mai). */
+export function clipProgress(m: Media, scenes: MvScene[]) {
+  const urls = scenes.filter(s => s.clipUrl && s.status === 'done').map(s => s.clipUrl!);
+  const ready = urls.filter(u => {
+    const st = m.clipState.get(u);
+    return st === 'error' || st === 'ready';
+  }).length;
+  const failed = urls.filter(u => m.clipState.get(u) === 'error').length;
+  return {ready, total: urls.length, failed};
+}
+
+/** Da tai xong het anh va clip (de cho truoc khi xuat). */
 export function mediaReady(m: Media, scenes: MvScene[]) {
-  return scenes.every(
-    s =>
-      (!s.imageUrl || m.imgs.get(s.imageUrl)?.complete) &&
-      (!s.endImageUrl || m.imgs.get(s.endImageUrl)?.complete) &&
-      (!s.clipUrl || s.status !== 'done' || (m.vids.get(s.clipUrl)?.readyState ?? 0) >= 3),
+  const p = clipProgress(m, scenes);
+  return (
+    p.ready === p.total &&
+    scenes.every(s => (!s.imageUrl || m.imgs.get(s.imageUrl)?.complete) && (!s.endImageUrl || m.imgs.get(s.endImageUrl)?.complete))
   );
 }
 
@@ -117,6 +173,12 @@ function drawScene(
     cover(ctx, endImg, W, H);
   };
 
+  // Clip da tai ve (blob) nhung trinh duyet chua giai ma (the video an, tab an): bam phat de no giai ma, tam ve anh
+  if (vid && vid.readyState < 2 && isPlaying && vid.paused && (!vid.duration || local < vid.duration)) {
+    live.add(vid);
+    if (Math.abs(vid.currentTime - local) > 0.35) vid.currentTime = Math.max(0, local);
+    void vid.play().catch(() => {});
+  }
   if (vid && vid.readyState >= 2 && local < clipLen) {
     live.add(vid);
     if (Math.abs(vid.currentTime - local) > 0.35) vid.currentTime = Math.max(0, local);
